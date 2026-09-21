@@ -9,9 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@apollo/client": "^4.3.1",
+    "@apollo/client-integration-nextjs": "^0.14.5",
+    "@next/third-parties": "^16.3.5",
+    "graphql": "^16.14.2",
+    "graphql-tag": "^2.12.7",
     "next": "16.3.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-culqi-next": "^1.0.2",
+    "react-dom": "19.2.8",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
