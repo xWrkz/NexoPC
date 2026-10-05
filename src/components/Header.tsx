@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export default function Header() {
     const itemCount = useCartStore((s) => s.getItemCount());
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    const mounted = useSyncExternalStore(
+        () => () => undefined,
+        () => true,
+        () => false,
+    );
 
     return (
         <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">

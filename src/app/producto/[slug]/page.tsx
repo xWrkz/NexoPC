@@ -1,5 +1,4 @@
-import { getClient } from "@/lib/apollo/apollo-client";
-import { GET_PRODUCT_BY_SLUG } from "@/lib/graphql/queries";
+import { getProductBySlug } from "@/lib/catalog/products";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import AddToCartButton from "@/components/AddToCartButton";
@@ -12,13 +11,8 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
-  const { data } = (await getClient().query({
-    query: GET_PRODUCT_BY_SLUG,
-    variables: { slug },
-  })) as any;
-
-  if (!data?.product) notFound();
-  const product = data.product;
+  const product = await getProductBySlug(slug);
+  if (!product) notFound();
 
   const priceClean = product.price
     ? parseFloat(
@@ -74,6 +68,8 @@ export default async function ProductPage({
             name={product.name}
             price={priceClean}
             image={product.image?.sourceUrl}
+            stockStatus={product.stockStatus}
+            variations={product.variations?.nodes}
           />
         </div>
       </div>

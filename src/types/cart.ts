@@ -1,5 +1,3 @@
-import { Product, Variation } from "./product";
-
 export interface CartItem {
   id: string;
   productId: number;

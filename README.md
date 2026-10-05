@@ -166,6 +166,31 @@ Antes de empezar, asegúrate de tener instalado:
 
 ## 🚀 Instalación Paso a Paso
 
+### Modo demo local (sin WordPress)
+
+Para levantar el frontend mientras se configura WooCommerce:
+
+```bash
+npm install
+copy .env.example .env.local
+npm run dev
+```
+
+Con `NEXT_PUBLIC_DEMO_MODE=true`, la tienda utiliza un catálogo local de prueba
+con productos simples, una variante de RAM y un producto agotado. Esto permite
+probar navegación, detalle, selección de variantes y carrito sin tener todavía
+el backend WordPress encendido.
+
+Cuando WooCommerce esté disponible, cambia en `.env.local`:
+
+```env
+NEXT_PUBLIC_DEMO_MODE=false
+NEXT_PUBLIC_GRAPHQL_URL=http://nexopc-local.local/graphql
+NEXT_PUBLIC_WORDPRESS_URL=http://nexopc-local.local
+```
+
+El mismo frontend pasará a consultar el catálogo real mediante GraphQL.
+
 ### 1. Clonar el repositorio
 
 ```bash

@@ -1,19 +1,7 @@
-import { getClient } from "@/lib/apollo/apollo-client";
-import { GET_PRODUCTS } from "@/lib/graphql/queries";
-import { Product } from "@/types/product";
+import { getProducts } from "@/lib/catalog/products";
 import ProductCard from "@/components/ProductCard";
 
 export const dynamic = "force-dynamic";
-
-async function getProducts(): Promise<Product[]> {
-    try {
-        const { data } = (await getClient().query({ query: GET_PRODUCTS })) as any;
-        return data?.products?.nodes || [];
-    } catch (error) {
-        console.error("Error al obtener productos:", error);
-        return [];
-    }
-}
 
 export default async function Tienda() {
     const products = await getProducts();

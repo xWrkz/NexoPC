@@ -10,7 +10,7 @@ export interface ComponentePC {
     formato?: string;
     longitudGPU?: number;
     vatios?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

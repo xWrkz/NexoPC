@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 
+interface OrderItemInput {
+  productId: number;
+  variationId?: number;
+  quantity: number;
+}
+
+interface OrderRequestBody {
+  items: OrderItemInput[];
+  customer: Record<string, string>;
+}
+
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { token, items, customer } = body;
+  const body = (await request.json()) as OrderRequestBody;
+  const { items, customer } = body;
 
   const auth = Buffer.from(
     `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
@@ -14,8 +25,9 @@ export async function POST(request: Request) {
     set_paid: true,
     customer_id: 0,
     billing: customer,
-    line_items: items.map((item: any) => ({
+    line_items: items.map((item) => ({
       product_id: item.productId,
+      ...(item.variationId ? { variation_id: item.variationId } : {}),
       quantity: item.quantity,
     })),
   };

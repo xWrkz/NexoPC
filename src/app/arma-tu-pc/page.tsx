@@ -4,8 +4,8 @@ import { useBuilderStore } from "@/store/builderStore";
 import { useCartStore } from "@/store/cartStore";
 
 export default function ArmaTuPC() {
-  const { seleccion, errores, getTotal, reset } = useBuilderStore();
-  const addItem = useCartStore((s: any) => s.addItem);
+  const { errores, getTotal, reset } = useBuilderStore();
+  const addItem = useCartStore((s) => s.addItem);
 
   const handleAgregarAlCarrito = () => {
     if (errores.length > 0) {
