@@ -10,5 +10,5 @@ const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 export const metadata: Metadata = { title: "NexoPC — Hardware que se siente", description: "Componentes, PCs armadas y asesoría para llevar tu setup más lejos." };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><body className={`${body.variable} ${display.variable} site-shell min-h-screen`}><ApolloProvider><MotionProvider><Header /><main className="flex-1">{children}</main><Footer /></MotionProvider></ApolloProvider></body></html>;
+  return <html lang="es" data-scroll-behavior="smooth"><body className={`${body.variable} ${display.variable} site-shell min-h-screen`}><ApolloProvider><MotionProvider><Header /><main className="flex-1">{children}</main><Footer /></MotionProvider></ApolloProvider></body></html>;
 }
