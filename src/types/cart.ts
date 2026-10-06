@@ -6,5 +6,7 @@ export interface CartItem {
   quantity: number;
   image?: string;
   variationId?: number;
-  isCustomBuild?: boolean;
+  category?: string;
+  buildId?: string;
+  buildName?: string;
 }

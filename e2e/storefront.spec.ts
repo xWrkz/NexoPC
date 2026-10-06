@@ -1,0 +1,4 @@
+import { expect, test } from "@playwright/test";
+test("descubre productos, aplica filtros y conserva la navegación",async({page})=>{await page.goto("/tienda");await expect(page.getByRole("heading",{name:/encuentra la pieza/i})).toBeVisible();await page.getByLabel("Buscar en catálogo").fill("Ryzen");await page.getByLabel("Buscar en catálogo").press("Enter");await expect(page).toHaveURL(/q=Ryzen/);});
+test("muestra el armador y permite iniciar una configuración",async({page})=>{await page.goto("/arma-tu-pc");await expect(page.getByRole("heading",{name:/arma una pc/i})).toBeVisible();await expect(page.getByText("Tu configuración")).toBeVisible();});
+test("el checkout protege el flujo sin productos",async({page})=>{await page.goto("/checkout");await expect(page.getByText(/no hay nada por confirmar/i)).toBeVisible();});

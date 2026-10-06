@@ -1,74 +1,13 @@
 "use client";
-
 import { useState } from "react";
+import { Check, Minus, Plus, ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { Variation } from "@/types/product";
-
-interface Props {
-  id: string;
-  productId: number;
-  name: string;
-  price: number;
-  image?: string;
-  stockStatus?: string;
-  variations?: Variation[];
-}
-
-export default function AddToCartButton({ id, productId, name, price, image, stockStatus, variations = [] }: Props) {
-  const addItem = useCartStore((s) => s.addItem);
-  const [added, setAdded] = useState(false);
-  const [selectedVariationId, setSelectedVariationId] = useState(variations[0]?.databaseId);
-  const selectedVariation = variations.find((variation) => variation.databaseId === selectedVariationId);
-  const currentPrice = selectedVariation?.price
-    ? parseFloat(selectedVariation.price.replace(/[^0-9.]/g, ""))
-    : price;
-  const unavailable = stockStatus === "OUT_OF_STOCK" || selectedVariation?.stockStatus === "OUT_OF_STOCK";
-
-  const handleAdd = () => {
-    if (unavailable) return;
-    addItem({
-      id: selectedVariation ? `${id}-${selectedVariation.databaseId}` : id,
-      productId,
-      variationId: selectedVariation?.databaseId,
-      name: selectedVariation ? `${name} - ${selectedVariation.name}` : name,
-      price: currentPrice,
-      quantity: 1,
-      image,
-    });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
-  };
-
-  return (
-    <div className="space-y-4">
-      {variations.length > 0 && (
-        <label className="block text-sm text-gray-300">
-          Variante
-          <select
-            value={selectedVariationId}
-            onChange={(event) => setSelectedVariationId(Number(event.target.value))}
-            className="mt-2 w-full rounded-lg bg-gray-800 px-4 py-3 text-white"
-          >
-            {variations.map((variation) => (
-              <option key={variation.databaseId} value={variation.databaseId}>
-                {variation.name} — {variation.price}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <button
-        onClick={handleAdd}
-        disabled={unavailable}
-        className={`w-full font-bold py-4 rounded-lg transition ${unavailable
-          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-          : added
-        ? "bg-green-600 text-white"
-        : "bg-orange-500 hover:bg-orange-600 text-white"
-        }`}
-      >
-        {unavailable ? "Agotado" : added ? "✅ Añadido al carrito" : "Añadir al carrito"}
-      </button>
-    </div>
-  );
+import { Product } from "@/types/product";
+import { getPriceValue } from "@/lib/utils/price";
+import { formatPrice } from "@/lib/utils/formatPrice";
+export default function AddToCartButton({ product }: { product: Product }) {
+  const addItem = useCartStore((s) => s.addItem); const [added, setAdded] = useState(false); const [quantity, setQuantity] = useState(1); const variations = product.variations?.nodes ?? []; const [variationId, setVariationId] = useState<number | undefined>(variations[0]?.databaseId);
+  const selected = variations.find((item) => item.databaseId === variationId); const unavailable = product.stockStatus === "OUT_OF_STOCK" || selected?.stockStatus === "OUT_OF_STOCK"; const currentPrice = selected?.price ?? product.price;
+  const add = () => { if (unavailable) return; addItem({ id: selected ? `${product.id}-${selected.databaseId}` : product.id, productId: product.databaseId, variationId: selected?.databaseId, name: selected ? `${product.name} · ${selected.name}` : product.name, price: getPriceValue(currentPrice), quantity, image: selected?.image?.sourceUrl ?? product.image?.sourceUrl, category: product.productCategories?.nodes[0]?.name }); setAdded(true); window.setTimeout(() => setAdded(false), 1800); };
+  return <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-[1fr_auto]"><label className="grid gap-2 text-sm font-semibold text-slate-200">{variations.length ? "Configuración" : "Cantidad"}{variations.length ? <select value={variationId} onChange={(event) => setVariationId(Number(event.target.value))} className="field"><option value="">Elige una opción</option>{variations.map((item) => <option value={item.databaseId} key={item.databaseId}>{item.name} · {formatPrice(item.price)} {item.stockStatus === "OUT_OF_STOCK" ? "(agotado)" : ""}</option>)}</select> : <span className="text-xs font-normal text-slate-500">Ajusta las unidades que necesitas.</span>}</label><div className="grid gap-2 text-sm font-semibold text-slate-200">Cantidad<div className="flex h-12 items-center rounded-xl border border-white/15 bg-slate-950/50"><button className="focus-ring grid size-11 place-items-center text-slate-300 hover:text-orange-300" onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Reducir cantidad"><Minus size={16}/></button><span className="grid w-8 place-items-center">{quantity}</span><button className="focus-ring grid size-11 place-items-center text-slate-300 hover:text-orange-300" onClick={() => setQuantity(quantity + 1)} aria-label="Aumentar cantidad"><Plus size={16}/></button></div></div></div><button onClick={add} disabled={unavailable || (variations.length > 0 && !selected)} className="btn-primary focus-ring w-full py-4 disabled:cursor-not-allowed disabled:opacity-45">{unavailable ? "Producto agotado" : added ? <><Check size={19}/>Añadido al carrito</> : <><ShoppingBag size={19}/>Añadir · {formatPrice(currentPrice)}</>}</button></div>;
 }

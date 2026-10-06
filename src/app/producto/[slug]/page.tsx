@@ -1,78 +1,9 @@
-import { getProductBySlug } from "@/lib/catalog/products";
 import Image from "next/image";
+import Link from "next/link";
+import { CheckCircle2, ChevronRight, Package, ShieldCheck, Truck } from "lucide-react";
 import { notFound } from "next/navigation";
-import AddToCartButton from "@/components/AddToCartButton";
+import { getProductBySlug, getProducts } from "@/lib/catalog/products";
 import { formatPrice } from "@/lib/utils/formatPrice";
-
-export default async function ProductPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-
-  const product = await getProductBySlug(slug);
-  if (!product) notFound();
-
-  const priceClean = product.price
-    ? parseFloat(
-      product.price
-        .replace(/&nbsp;/g, "")
-        .replace(/S\//g, "")
-        .replace(/,/g, "")
-        .replace(/[^0-9.]/g, "")
-    )
-    : 0;
-
-  return (
-    <main className="min-h-screen bg-gray-950 py-12 px-6">
-      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12">
-        <div className="relative aspect-square bg-gray-900 rounded-lg overflow-hidden">
-          {product.image ? (
-            <Image
-              src={product.image.sourceUrl}
-              alt={product.image.altText || product.name}
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-600">
-              Sin imagen
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-4">{product.name}</h1>
-          <p className="text-4xl font-bold text-orange-500 mb-6">
-            {formatPrice(product.price)}
-          </p>
-          <p className="text-sm mb-6">
-            {product.stockStatus === "IN_STOCK" ? (
-              <span className="text-green-500">✅ En stock</span>
-            ) : (
-              <span className="text-red-500">❌ Agotado</span>
-            )}
-          </p>
-
-          {product.shortDescription && (
-            <div
-              className="prose prose-invert text-gray-300 mb-8"
-              dangerouslySetInnerHTML={{ __html: product.shortDescription }}
-            />
-          )}
-
-          <AddToCartButton
-            id={product.id}
-            productId={product.databaseId}
-            name={product.name}
-            price={priceClean}
-            image={product.image?.sourceUrl}
-            stockStatus={product.stockStatus}
-            variations={product.variations?.nodes}
-          />
-        </div>
-      </div>
-    </main>
-  );
-}
+import AddToCartButton from "@/components/AddToCartButton";
+import ProductCard from "@/components/ProductCard";
+export default async function ProductPage({ params }: { params: Promise<{slug:string}> }) { const {slug}=await params; const product=await getProductBySlug(slug); if(!product) notFound(); const gallery=[product.image,...(product.galleryImages?.nodes ?? [])].filter((image): image is NonNullable<typeof product.image> => Boolean(image)); const related=(await getProducts()).filter((item)=>item.slug!==product.slug && item.productCategories?.nodes.some((cat)=>cat.slug===product.productCategories?.nodes[0]?.slug)).slice(0,4); const services=[{Icon:Truck,title:"Envío y entrega",text:"Coordinamos cada pedido"},{Icon:ShieldCheck,title:"Compra informada",text:"Stock y variante validados"},{Icon:Package,title:"Soporte NexoPC",text:"Antes y después de comprar"}]; return <div className="mx-auto max-w-7xl px-6 py-9 sm:py-12"><nav className="flex items-center gap-1.5 text-sm text-slate-500"><Link href="/tienda" className="hover:text-orange-300">Tienda</Link><ChevronRight size={14}/><span className="truncate text-slate-300">{product.name}</span></nav><div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_.95fr]"><div><div className="relative aspect-square overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-950">{product.image ? <Image src={product.image.sourceUrl} alt={product.image.altText || product.name} fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 54vw"/> : <div className="grid h-full place-items-center text-slate-600"><Package size={50}/></div>}</div>{gallery.length>1 ? <div className="mt-3 flex gap-3 overflow-auto pb-1">{gallery.map((image,index)=><div className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-white/10" key={`${image.sourceUrl}-${index}`}><Image src={image.sourceUrl} alt={image.altText || `${product.name} ${index+1}`} fill className="object-cover"/></div>)}</div> : null}</div><div><p className="eyebrow">{product.productCategories?.nodes[0]?.name ?? "Hardware NexoPC"}</p><h1 className="font-display mt-3 text-4xl font-bold leading-tight sm:text-5xl">{product.name}</h1>{product.sku ? <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">SKU · {product.sku}</p> : null}<div className="mt-6 flex flex-wrap items-baseline gap-3"><p className="price text-4xl">{formatPrice(product.price)}</p>{product.salePrice && product.regularPrice ? <p className="text-lg text-slate-500 line-through">{formatPrice(product.regularPrice)}</p> : null}</div><p className={`mt-4 flex items-center gap-2 text-sm font-bold ${product.stockStatus === "IN_STOCK" ? "text-emerald-300" : "text-rose-300"}`}><CheckCircle2 size={17}/>{product.stockStatus === "IN_STOCK" ? "Disponible para tu configuración" : "Temporalmente agotado"}</p>{product.shortDescription ? <div className="mt-6 max-w-xl text-sm leading-7 text-slate-300" dangerouslySetInnerHTML={{__html:product.shortDescription}}/> : null}<div className="mt-8 border-y border-white/10 py-7"><AddToCartButton product={product}/></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{services.map(({Icon,title,text})=><div className="rounded-xl border border-white/8 bg-white/[.025] p-3" key={title}><Icon size={17} className="text-orange-300"/><p className="mt-2 text-xs font-bold">{title}</p><p className="mt-1 text-[11px] leading-4 text-slate-500">{text}</p></div>)}</div></div></div><section className="mt-14 grid gap-8 lg:grid-cols-[.7fr_1.3fr]"><div><p className="eyebrow">Detalles técnicos</p><h2 className="font-display mt-3 text-3xl font-bold">Todo lo que necesitas saber.</h2></div><div className="panel overflow-hidden">{product.attributes?.nodes.length ? product.attributes.nodes.map((attribute)=><div key={attribute.name} className="grid gap-1 border-b border-white/8 p-4 last:border-0 sm:grid-cols-[.38fr_1fr]"><span className="text-sm font-bold text-slate-400">{attribute.label || attribute.name}</span><span className="text-sm text-slate-100">{attribute.options.join(", ") || "No especificado"}</span></div>) : <p className="p-5 text-sm leading-6 text-slate-400">La ficha técnica detallada se completará desde el catálogo de NexoPC. Consulta al equipo si necesitas confirmar una especificación antes de comprar.</p>}</div></section>{related.length ? <section className="mt-16"><div className="flex items-end justify-between"><div><p className="eyebrow">Sigue explorando</p><h2 className="font-display mt-3 text-3xl font-bold">También puede interesarte</h2></div><Link href="/tienda" className="text-sm font-bold text-orange-300">Ver catálogo</Link></div><div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{related.map((item)=><ProductCard product={item} key={item.id}/>)}</div></section> : null}</div>; }

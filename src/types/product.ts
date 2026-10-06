@@ -1,20 +1,20 @@
-export interface Product {
+export interface ProductImage {
+  sourceUrl: string;
+  altText: string;
+}
+
+export interface ProductCategory {
   id: string;
-  databaseId: number;
   name: string;
   slug: string;
-  description?: string;
-  shortDescription?: string;
-  image: {
-    sourceUrl: string;
-    altText: string;
-  } | null;
-  price?: string;
-  regularPrice?: string;
-  stockStatus?: string;
-  variations?: {
-    nodes: Variation[];
-  };
+}
+
+export interface ProductAttribute {
+  name: string;
+  label?: string;
+  options: string[];
+  visible?: boolean;
+  variation?: boolean;
 }
 
 export interface Variation {
@@ -22,5 +22,43 @@ export interface Variation {
   databaseId: number;
   name: string;
   price: string;
+  regularPrice?: string;
   stockStatus: string;
+  image?: ProductImage | null;
+  attributes?: ProductAttribute[];
+}
+
+export interface Product {
+  id: string;
+  databaseId: number;
+  name: string;
+  slug: string;
+  sku?: string;
+  description?: string;
+  shortDescription?: string;
+  image: ProductImage | null;
+  galleryImages?: { nodes: ProductImage[] };
+  productCategories?: { nodes: ProductCategory[] };
+  attributes?: { nodes: ProductAttribute[] };
+  price?: string;
+  regularPrice?: string;
+  salePrice?: string;
+  stockStatus?: string;
+  stockQuantity?: number | null;
+  variations?: { nodes: Variation[] };
+}
+
+export interface CatalogFilters {
+  query?: string;
+  category?: string;
+  availability?: "all" | "in-stock";
+  sort?: "featured" | "price-asc" | "price-desc" | "name";
+  minPrice?: number;
+  maxPrice?: number;
+}
+
+export interface CatalogPage {
+  products: Product[];
+  categories: ProductCategory[];
+  pageInfo: { hasNextPage: boolean; endCursor?: string | null };
 }

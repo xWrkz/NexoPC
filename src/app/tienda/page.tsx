@@ -1,29 +1,11 @@
-import { getProducts } from "@/lib/catalog/products";
+import Link from "next/link";
+import { ArrowRight, PackageSearch } from "lucide-react";
+import { getCatalog } from "@/lib/catalog/products";
 import ProductCard from "@/components/ProductCard";
-
+import CatalogFilters from "@/components/CatalogFilters";
 export const dynamic = "force-dynamic";
-
-export default async function Tienda() {
-    const products = await getProducts();
-
-    return (
-        <main className="min-h-screen bg-gray-950 py-12 px-6">
-            <div className="max-w-7xl mx-auto">
-                <h1 className="text-4xl font-bold text-white mb-2">Tienda</h1>
-                <p className="text-gray-400 mb-8">Todos los componentes disponibles</p>
-
-                {products.length === 0 ? (
-                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-                        <p className="text-gray-400">No hay productos disponibles.</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {products.map((product) => (
-                            <ProductCard key={product.id} product={product} />
-                        ))}
-                    </div>
-                )}
-            </div>
-        </main>
-    );
+export default async function Tienda({ searchParams }: { searchParams: Promise<Record<string,string | string[] | undefined>> }) {
+  const params = await searchParams; const one = (key:string) => typeof params[key] === "string" ? params[key] : undefined;
+  const { products, categories, pageInfo } = await getCatalog({ query: one("q"), category: one("categoria"), availability: one("stock") === "in-stock" ? "in-stock" : "all", sort: (one("orden") as "featured"|"price-asc"|"price-desc"|"name") ?? "featured", minPrice: Number(one("min")) || undefined, maxPrice: Number(one("max")) || undefined }, one("after"));
+  return <div className="mx-auto max-w-7xl px-6 py-12 sm:py-16"><div className="max-w-3xl"><p className="eyebrow">Catálogo NexoPC</p><h1 className="font-display mt-3 text-5xl font-bold sm:text-6xl">Encuentra la pieza que mueve tu setup.</h1><p className="mt-4 text-lg leading-7 text-slate-400">Explora hardware real, compara con calma y deja que el armador te ayude con el resto.</p></div><div className="mt-9"><CatalogFilters categories={categories}/></div><div className="mt-7 flex items-center justify-between text-sm"><p className="text-slate-400"><strong className="text-white">{products.length}</strong> {products.length === 1 ? "resultado" : "resultados"}</p><Link className="flex items-center gap-2 font-bold text-orange-300 hover:text-orange-200" href="/arma-tu-pc">¿No sabes qué elegir? Arma tu PC <ArrowRight size={15}/></Link></div>{products.length ? <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.map((product,index)=><ProductCard key={product.id} product={product} priority={index < 2}/>)}</div> : <div className="panel mt-5 grid min-h-72 place-items-center p-8 text-center"><div><PackageSearch className="mx-auto text-orange-300" size={34}/><h2 className="mt-4 text-xl font-bold">No encontramos hardware con esos filtros.</h2><p className="mt-2 text-sm text-slate-400">Prueba cambiar el nombre, precio o disponibilidad.</p><Link className="btn-secondary focus-ring mt-6" href="/tienda">Restablecer catálogo</Link></div></div>}{pageInfo.hasNextPage && pageInfo.endCursor ? <div className="mt-10 text-center"><Link className="btn-secondary focus-ring" href={`/tienda?${new URLSearchParams({ ...(one("q") ? {q:one("q")} : {}), after:pageInfo.endCursor }).toString()}`}>Ver más productos <ArrowRight size={16}/></Link></div> : null}</div>;
 }

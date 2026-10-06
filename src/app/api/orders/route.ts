@@ -1,49 +1,8 @@
 import { NextResponse } from "next/server";
-
-interface OrderItemInput {
-  productId: number;
-  variationId?: number;
-  quantity: number;
-}
-
-interface OrderRequestBody {
-  items: OrderItemInput[];
-  customer: Record<string, string>;
-}
-
-export async function POST(request: Request) {
-  const body = (await request.json()) as OrderRequestBody;
-  const { items, customer } = body;
-
-  const auth = Buffer.from(
-    `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
-  ).toString("base64");
-
-  const orderData = {
-    payment_method: "culqi",
-    payment_method_title: "Culqi",
-    set_paid: true,
-    customer_id: 0,
-    billing: customer,
-    line_items: items.map((item) => ({
-      product_id: item.productId,
-      ...(item.variationId ? { variation_id: item.variationId } : {}),
-      quantity: item.quantity,
-    })),
-  };
-
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wc/v3/orders`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${auth}`,
-      },
-      body: JSON.stringify(orderData),
-    }
-  );
-
-  const order = await response.json();
-  return NextResponse.json(order);
-}
+import { orderSchema, OrderResponse } from "@/lib/checkout/schema";
+export const runtime="nodejs";
+type WooProduct={id:number;price:string;stock_status:string;stock_quantity:number|null;manage_stock:boolean;name:string};
+const error=(message:string,errors?:Record<string,string[]>,status=400)=>NextResponse.json<OrderResponse>({ok:false,message,errors},{status});
+const config=()=>{const url=process.env.NEXT_PUBLIC_WORDPRESS_URL;const key=process.env.WC_CONSUMER_KEY;const secret=process.env.WC_CONSUMER_SECRET;return url&&key&&secret?{url:url.replace(/\/$/,""),auth:`Basic ${Buffer.from(`${key}:${secret}`).toString("base64")}`} : null;};
+async function woo(path:string,init:RequestInit={}){const settings=config();if(!settings)throw new Error("La conexión segura con WooCommerce no está configurada.");const response=await fetch(`${settings.url}/wp-json/wc/v3/${path}`,{...init,headers:{Authorization:settings.auth,"Content-Type":"application/json",...init.headers},cache:"no-store"});const data=await response.json().catch(()=>null);if(!response.ok)throw new Error(data?.message||"WooCommerce no pudo procesar la solicitud.");return data;}
+export async function POST(request:Request){let body:unknown;try{body=await request.json();}catch{return error("No pudimos leer los datos del pedido.");}const parsed=orderSchema.safeParse(body);if(!parsed.success){const fields=parsed.error.flatten().fieldErrors as Record<string,string[]>;return error("Revisa los campos marcados antes de continuar.",fields,422);}try{const items=[];for(const item of parsed.data.items){const path=item.variationId?`products/${item.productId}/variations/${item.variationId}`:`products/${item.productId}`;const product=await woo(path) as WooProduct;if(product.stock_status!=="instock")return error(`${product.name} ya no está disponible.`,undefined,409);if(product.manage_stock&&product.stock_quantity!==null&&product.stock_quantity<item.quantity)return error(`Solo quedan ${product.stock_quantity} unidades de ${product.name}.`,undefined,409);items.push({product_id:item.productId,...(item.variationId?{variation_id:item.variationId}:{}),quantity:item.quantity});}const {customer,paymentMethod}=parsed.data;const order=await woo("orders",{method:"POST",body:JSON.stringify({payment_method:paymentMethod,payment_method_title:paymentMethod==="bacs"?"Transferencia bancaria":"Pago contraentrega",set_paid:false,status:"on-hold",billing:{first_name:customer.firstName,last_name:customer.lastName,email:customer.email,phone:customer.phone,address_1:customer.address1,city:customer.city,state:customer.region,postcode:customer.postcode,country:"PE"},shipping:{first_name:customer.firstName,last_name:customer.lastName,address_1:customer.address1,city:customer.city,state:customer.region,postcode:customer.postcode,country:"PE"},customer_note:customer.notes??"",line_items:items})}) as {id:number;number:string;status:string};return NextResponse.json<OrderResponse>({ok:true,orderId:order.id,orderNumber:order.number,status:order.status,paymentMethod,message:"Tu pedido fue registrado correctamente."},{status:201});}catch(cause){const message=cause instanceof Error?cause.message:"No pudimos registrar el pedido.";return error(message,undefined,message.includes("configurada")?503:502);}}

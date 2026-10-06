@@ -1,46 +1,7 @@
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Cpu, Gamepad2, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { getProducts } from "@/lib/catalog/products";
 import ProductCard from "@/components/ProductCard";
-
 export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const products = await getProducts();
-
-  return (
-    <main className="min-h-screen bg-gray-950">
-      <section className="bg-gradient-to-br from-gray-900 via-gray-950 to-black py-20 px-6">
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-            Arma tu PC con <span className="text-orange-500">compatibilidad garantizada</span>
-          </h1>
-          <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-            Configurador inteligente, ensamblaje profesional y certificado de rendimiento en video.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <a href="/arma-tu-pc" className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-lg transition">
-              Arma tu PC
-            </a>
-            <a href="/tienda" className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-lg transition">
-              Ver componentes
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto py-16 px-6">
-        <h2 className="text-3xl font-bold text-white mb-8">Componentes destacados</h2>
-        {products.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-            <p className="text-gray-400">No hay productos disponibles.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
-  );
-}
+const benefits = [{icon: ShieldCheck,title:"Compatibilidad asistida",text:"Te avisamos antes de elegir una combinación que no tiene sentido."},{icon: Wrench,title:"Ensamblaje experto",text:"Tu equipo llega listo para encender, trabajar y jugar."},{icon: Sparkles,title:"Acompañamiento real",text:"Configuramos contigo una PC según tu presupuesto y objetivo."}];
+export default async function Home() { const products = await getProducts(); return <div className="overflow-hidden"><section className="relative isolate"><div className="tech-grid absolute inset-0 -z-10"/><div className="noise"/><div className="mx-auto grid min-h-[650px] max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-[1.05fr_.95fr] lg:py-28"><div><p className="eyebrow">Hardware con criterio</p><h1 className="font-display mt-5 max-w-3xl text-5xl font-bold leading-[.95] text-white sm:text-6xl lg:text-7xl">La PC que imaginas.<span className="block bg-gradient-to-r from-orange-300 via-orange-500 to-amber-200 bg-clip-text text-transparent"> El rendimiento que mereces.</span></h1><p className="mt-7 max-w-xl text-lg leading-8 text-slate-400">Componentes seleccionados, configuraciones que sí encajan y una experiencia de compra diseñada para que sepas exactamente qué estás construyendo.</p><div className="mt-9 flex flex-wrap gap-3"><Link href="/arma-tu-pc" className="btn-primary focus-ring"><Cpu size={19}/>Arma tu PC <ArrowRight size={17}/></Link><Link href="/tienda" className="btn-secondary focus-ring">Explorar componentes</Link></div><div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-sm text-slate-400">{["Compra en soles", "Asesoría en Trujillo", "Stock conectado a WooCommerce"].map((item)=><span key={item} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-400"/>{item}</span>)}</div></div><div className="relative mx-auto w-full max-w-xl"><div className="absolute -inset-12 rounded-full bg-orange-500/18 blur-3xl"/><div className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-gradient-to-br from-slate-800 via-slate-950 to-[#080a10] p-7 shadow-2xl"><div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_12%,rgba(57,216,255,.25),transparent_22%),radial-gradient(circle_at_30%_80%,rgba(255,106,0,.28),transparent_34%)]"/><div className="relative"><div className="flex items-center justify-between text-xs font-bold uppercase tracking-[.18em] text-slate-400"><span>Nexo performance lab</span><span className="flex items-center gap-1 text-emerald-300"><i className="size-2 rounded-full bg-emerald-400"/>Online</span></div><div className="mt-16 grid aspect-square place-items-center rounded-[1.5rem] border border-white/10 bg-black/25"><div className="relative grid size-48 place-items-center rounded-full border border-orange-300/50 bg-orange-500/8 shadow-[0_0_80px_rgba(255,106,0,.24)]"><Gamepad2 size={76} className="text-orange-300"/><span className="absolute -right-4 bottom-2 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200">FPS READY</span></div></div><div className="mt-6 grid grid-cols-3 gap-3">{["CPU", "GPU", "RAM"].map((label,index)=><div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-[10px] font-bold tracking-widest text-slate-500">{label}</p><p className="mt-1 text-sm font-bold text-white">{["OPTIMIZED","POWER","DDR5"][index]}</p></div>)}</div></div></div></div></div></section><section className="mx-auto max-w-7xl px-6 py-20"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="eyebrow">Elige tu próximo upgrade</p><h2 className="font-display mt-3 text-4xl font-bold">Componentes destacados</h2></div><Link href="/tienda" className="group flex items-center gap-2 text-sm font-bold text-orange-300">Ver toda la tienda <ArrowRight size={16} className="transition group-hover:translate-x-1"/></Link></div><div className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.slice(0,4).map((product,index)=><ProductCard key={product.id} product={product} priority={index < 2}/>)}</div></section><section className="mx-auto max-w-7xl px-6 pb-20"><div className="grid gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 md:grid-cols-3">{benefits.map(({icon:Icon,title,text})=><div className="bg-[#0b0f19] p-7" key={title}><Icon className="text-orange-300" size={25}/><h3 className="mt-5 text-lg font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{text}</p></div>)}</div></section><section className="mx-auto max-w-7xl px-6 pb-8"><div className="relative overflow-hidden rounded-3xl border border-orange-400/20 bg-gradient-to-br from-orange-500/20 via-[#161221] to-cyan-500/10 p-8 sm:p-12"><div className="absolute -right-20 -top-20 size-72 rounded-full bg-orange-400/15 blur-3xl"/><div className="relative max-w-2xl"><p className="eyebrow">Tu build, a tu ritmo</p><h2 className="font-display mt-3 text-4xl font-bold sm:text-5xl">Deja de adivinar si las piezas encajan.</h2><p className="mt-5 text-slate-300">El armador de NexoPC organiza cada decisión, estima tu potencia y explica claramente lo que falta por validar.</p><Link href="/arma-tu-pc" className="btn-primary focus-ring mt-7">Empezar mi configuración <ArrowRight size={17}/></Link></div></div></section></div>; }
