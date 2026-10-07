@@ -1,46 +1,115 @@
 import { getClient } from "@/lib/apollo/apollo-client";
 import { GET_PRODUCT_BY_SLUG, GET_PRODUCTS } from "@/lib/graphql/queries";
-import { CatalogFilters, CatalogPage, Product, ProductCategory } from "@/types/product";
+import {
+  CatalogFilters,
+  CatalogResult,
+  Product,
+  ProductCategory,
+  ProductTag,
+} from "@/types/product";
 import { getPriceValue } from "@/lib/utils/price";
+import { activeUsageTags, buildCatalogWhere, isDemoMode } from "@/lib/catalog/config";
+
+export { buildCatalogWhere, isDemoMode, usageProfiles } from "@/lib/catalog/config";
 
 const demoCategories: ProductCategory[] = [
-  { id: "cat-cpu", name: "Procesadores", slug: "procesadores" },
-  { id: "cat-ram", name: "Memoria RAM", slug: "memoria-ram" },
-  { id: "cat-gpu", name: "Tarjetas gráficas", slug: "tarjetas-graficas" },
-  { id: "cat-psu", name: "Fuentes de poder", slug: "fuentes-de-poder" },
+  { id: "cat-cpu", name: "Procesadores", slug: "procesadores", count: 1 },
+  { id: "cat-ram", name: "Memoria RAM", slug: "memoria-ram", count: 1 },
+];
+
+const demoTags: ProductTag[] = [
+  { id: "tag-study", name: "Estudio", slug: "estudio", count: 1 },
+  { id: "tag-gaming", name: "Gaming", slug: "gaming", count: 1 },
 ];
 
 const demoProducts: Product[] = [
-  { id: "demo-cpu-amd-ryzen-5-7600", databaseId: 1001, name: "AMD Ryzen 5 7600", slug: "amd-ryzen-5-7600", sku: "RYZ-7600", shortDescription: "Procesador de 6 núcleos para una PC gamer equilibrada.", image: null, price: "S/ 899.00", regularPrice: "S/ 949.00", salePrice: "S/ 899.00", stockStatus: "IN_STOCK", stockQuantity: 8, productCategories: { nodes: [demoCategories[0]] }, attributes: { nodes: [{ name: "Socket", options: ["AM5"] }, { name: "TDP", options: ["65W"] }] } },
-  { id: "demo-ram-kingston-fury", databaseId: 1002, name: "Kingston Fury Beast RGB", slug: "kingston-fury-beast-rgb", sku: "KF-5600", shortDescription: "Memoria DDR5 disponible en distintas capacidades.", image: null, price: "S/ 329.00", regularPrice: "S/ 369.00", salePrice: "S/ 329.00", stockStatus: "IN_STOCK", stockQuantity: 12, productCategories: { nodes: [demoCategories[1]] }, attributes: { nodes: [{ name: "Tipo de RAM", options: ["DDR5"] }] }, variations: { nodes: [{ id: "demo-ram-16gb", databaseId: 1101, name: "16 GB", price: "S/ 329.00", stockStatus: "IN_STOCK" }, { id: "demo-ram-32gb", databaseId: 1102, name: "32 GB", price: "S/ 569.00", stockStatus: "IN_STOCK" }] } },
-  { id: "demo-gpu-rtx-4060", databaseId: 1003, name: "GeForce RTX 4060 8 GB", slug: "geforce-rtx-4060-8gb", sku: "RTX4060-8G", shortDescription: "Tarjeta gráfica para jugar en 1080p con ray tracing.", image: null, price: "S/ 1,499.00", regularPrice: "S/ 1,499.00", stockStatus: "OUT_OF_STOCK", stockQuantity: 0, productCategories: { nodes: [demoCategories[2]] }, attributes: { nodes: [{ name: "TDP", options: ["115W"] }, { name: "Longitud GPU", options: ["250mm"] }] } },
+  { id: "demo-cpu", databaseId: 1001, name: "Procesador de demostración", slug: "procesador-demo", sku: "DEMO-CPU", image: null, price: "S/ 899.00", stockStatus: "IN_STOCK", productCategories: { nodes: [demoCategories[0]] }, productTags: { nodes: [demoTags[1]] }, attributes: { nodes: [{ name: "Socket", options: ["AM5"] }] } },
+  { id: "demo-ram", databaseId: 1002, name: "Memoria de demostración", slug: "memoria-demo", sku: "DEMO-RAM", image: null, price: "S/ 329.00", stockStatus: "IN_STOCK", productCategories: { nodes: [demoCategories[1]] }, productTags: { nodes: [demoTags[0]] }, attributes: { nodes: [{ name: "Tipo de RAM", options: ["DDR5"] }] } },
 ];
 
-export function isDemoMode() { return process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.NEXT_PUBLIC_GRAPHQL_URL; }
-function filterProducts(products: Product[], filters: CatalogFilters = {}) {
+export class CatalogSourceError extends Error {
+  constructor(message = "No pudimos conectar con el catálogo en este momento.") {
+    super(message);
+    this.name = "CatalogSourceError";
+  }
+}
+
+function filterDemoProducts(products: Product[], filters: CatalogFilters = {}) {
+  const tags = new Set([...(filters.tags ?? []), ...activeUsageTags(filters)]);
   return products.filter((product) => {
     const search = filters.query?.trim().toLowerCase();
-    const category = product.productCategories?.nodes.some((item) => item.slug === filters.category);
     const value = getPriceValue(product.price);
-    return (!search || `${product.name} ${product.sku ?? ""}`.toLowerCase().includes(search)) &&
-      (!filters.category || category) &&
-      (filters.availability !== "in-stock" || product.stockStatus === "IN_STOCK") &&
-      (!filters.minPrice || value >= filters.minPrice) && (!filters.maxPrice || value <= filters.maxPrice);
-  }).sort((a, b) => filters.sort === "price-asc" ? getPriceValue(a.price) - getPriceValue(b.price) : filters.sort === "price-desc" ? getPriceValue(b.price) - getPriceValue(a.price) : filters.sort === "name" ? a.name.localeCompare(b.name) : 0);
+    const productCategories = product.productCategories?.nodes.map((item) => item.slug) ?? [];
+    const productTags = product.productTags?.nodes.map((item) => item.slug) ?? [];
+    return (!search || `${product.name} ${product.sku ?? ""}`.toLowerCase().includes(search))
+      && (!(filters.categories?.length) || filters.categories.some((slug) => productCategories.includes(slug)))
+      && (!tags.size || [...tags].some((slug) => productTags.includes(slug)))
+      && (filters.availability !== "in-stock" || product.stockStatus === "IN_STOCK")
+      && (filters.availability !== "out-of-stock" || product.stockStatus === "OUT_OF_STOCK")
+      && (!filters.onSale || getPriceValue(product.regularPrice) > value)
+      && (filters.minPrice === undefined || value >= filters.minPrice)
+      && (filters.maxPrice === undefined || value <= filters.maxPrice);
+  }).sort((a, b) => filters.sort === "price-asc"
+    ? getPriceValue(a.price) - getPriceValue(b.price)
+    : filters.sort === "price-desc"
+      ? getPriceValue(b.price) - getPriceValue(a.price)
+      : filters.sort === "name"
+        ? a.name.localeCompare(b.name)
+        : 0);
 }
 
-export async function getCatalog(filters: CatalogFilters = {}, after?: string | null): Promise<CatalogPage> {
-  if (isDemoMode()) return { products: filterProducts(demoProducts, filters), categories: demoCategories, pageInfo: { hasNextPage: false, endCursor: null } };
+const emptyPageInfo = { hasNextPage: false, endCursor: null };
+
+export async function getCatalog(filters: CatalogFilters = {}, after?: string | null): Promise<CatalogResult> {
+  if (isDemoMode()) {
+    const products = filterDemoProducts(demoProducts, filters);
+    return { products, categories: demoCategories, tags: demoTags, pageInfo: emptyPageInfo, status: products.length ? "success" : "empty", source: "demo" };
+  }
+
+  if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) {
+    return { products: [], categories: [], tags: [], pageInfo: emptyPageInfo, status: "error", source: "catalog", error: "El catálogo no está configurado. Inténtalo nuevamente más tarde." };
+  }
+
   try {
-    const { data } = await getClient().query({ query: GET_PRODUCTS, variables: { first: 48, after }, fetchPolicy: "no-cache" });
-    const result = data as { products?: { nodes?: Product[]; pageInfo?: CatalogPage["pageInfo"] }; productCategories?: { nodes?: ProductCategory[] } };
-    return { products: filterProducts(result.products?.nodes ?? [], filters), categories: result.productCategories?.nodes ?? [], pageInfo: result.products?.pageInfo ?? { hasNextPage: false, endCursor: null } };
-  } catch { return { products: filterProducts(demoProducts, filters), categories: demoCategories, pageInfo: { hasNextPage: false, endCursor: null } }; }
+    const { data } = await getClient().query({
+      query: GET_PRODUCTS,
+      variables: { first: 24, after, where: buildCatalogWhere(filters) },
+      fetchPolicy: "no-cache",
+    });
+    const result = data as {
+      products?: { nodes?: Product[]; pageInfo?: CatalogResult["pageInfo"] };
+      productCategories?: { nodes?: ProductCategory[] };
+      productTags?: { nodes?: ProductTag[] };
+    };
+    const products = result.products?.nodes ?? [];
+    return {
+      products,
+      categories: result.productCategories?.nodes ?? [],
+      tags: result.productTags?.nodes ?? [],
+      pageInfo: result.products?.pageInfo ?? emptyPageInfo,
+      status: products.length ? "success" : "empty",
+      source: "catalog",
+    };
+  } catch (error) {
+    console.error("Catalog query failed", error);
+    return { products: [], categories: [], tags: [], pageInfo: emptyPageInfo, status: "error", source: "catalog", error: "No pudimos cargar el catálogo. Revisa tu conexión e inténtalo otra vez." };
+  }
 }
 
-export async function getProducts() { return (await getCatalog()).products; }
+export async function getProducts() {
+  const result = await getCatalog();
+  if (result.status === "error") throw new CatalogSourceError(result.error);
+  return result.products;
+}
+
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   if (isDemoMode()) return demoProducts.find((product) => product.slug === slug) ?? null;
-  try { const { data } = await getClient().query({ query: GET_PRODUCT_BY_SLUG, variables: { slug }, fetchPolicy: "no-cache" }); return (data as { product?: Product }).product ?? null; }
-  catch { return demoProducts.find((product) => product.slug === slug) ?? null; }
+  if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) throw new CatalogSourceError("El catálogo no está configurado.");
+  try {
+    const { data } = await getClient().query({ query: GET_PRODUCT_BY_SLUG, variables: { slug }, fetchPolicy: "no-cache" });
+    return (data as { product?: Product }).product ?? null;
+  } catch (error) {
+    console.error("Product query failed", error);
+    throw new CatalogSourceError();
+  }
 }

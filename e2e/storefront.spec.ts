@@ -1,5 +1,33 @@
 import { expect, test } from "@playwright/test";
-test("descubre productos, aplica filtros y conserva la navegación",async({page})=>{await page.goto("/tienda");await expect(page.getByRole("heading",{name:/encuentra la pieza/i})).toBeVisible();await page.getByLabel("Buscar en catálogo").fill("Ryzen");await page.getByLabel("Buscar en catálogo").press("Enter");await expect(page).toHaveURL(/q=Ryzen/);});
-test("la home responde a los enfoques de uso",async({page})=>{const clientErrors:string[]=[];page.on("pageerror",error=>clientErrors.push(error.message));await page.goto("/");await expect(page.getByRole("heading",{name:/la pc que imaginas/i})).toBeVisible();await page.waitForTimeout(300);expect(clientErrors).toEqual([]);const creation=page.getByRole("button",{name:"Creación"});await creation.click();await expect(page.getByRole("heading",{name:/convierte cada idea/i})).toBeVisible();});
-test("muestra el armador y permite iniciar una configuración",async({page})=>{await page.goto("/arma-tu-pc");await expect(page.getByRole("heading",{name:/arma una pc/i})).toBeVisible();await expect(page.getByText("Tu configuración")).toBeVisible();});
-test("el checkout protege el flujo sin productos",async({page})=>{await page.goto("/checkout");await expect(page.getByText(/no hay nada por confirmar/i)).toBeVisible();});
+
+test("busca por nombre parcial y conserva el filtro en la URL", async ({ page }) => {
+  await page.goto("/tienda");
+  await expect(page.getByRole("heading", { name: /la pieza correcta/i })).toBeVisible();
+  const search = page.getByLabel("Buscar en catálogo");
+  await search.fill("tes");
+  await expect(page).toHaveURL(/q=tes/, { timeout: 5_000 });
+  await expect(page.getByText(/resultados? en esta página/i)).toBeVisible();
+});
+
+test("la home ofrece rutas para públicos diferentes", async ({ page }) => {
+  const clientErrors: string[] = [];
+  page.on("pageerror", (error) => clientErrors.push(error.message));
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /tu próxima pc empieza/i })).toBeVisible();
+  await page.getByRole("button", { name: "Estudio" }).click();
+  await expect(page.getByRole("heading", { name: /acompaña tus clases/i })).toBeVisible();
+  expect(clientErrors).toEqual([]);
+});
+
+test("el armador cambia entre modo guiado y avanzado", async ({ page }) => {
+  await page.goto("/arma-tu-pc?modo=guiado&uso=study");
+  await expect(page.getByRole("heading", { name: /tu pc, construida/i })).toBeVisible();
+  await expect(page.getByText("Presupuesto aproximado")).toBeVisible();
+  await page.getByRole("button", { name: /sé qué componentes quiero/i }).click();
+  await expect(page.getByText("Presupuesto aproximado")).toBeHidden();
+});
+
+test("el checkout protege el flujo sin productos", async ({ page }) => {
+  await page.goto("/checkout");
+  await expect(page.getByText(/no hay nada por confirmar/i)).toBeVisible();
+});

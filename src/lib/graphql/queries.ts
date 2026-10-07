@@ -5,8 +5,11 @@ export const PRODUCT_FIELDS = gql`
     id databaseId name slug sku description shortDescription
     image { sourceUrl altText }
     galleryImages(first: 8) { nodes { sourceUrl altText } }
-    productCategories { nodes { id name slug } }
-    attributes { nodes { name label options visible variation } }
+    productCategories { nodes { id databaseId name slug count parent { node { id name slug } } } }
+    productTags { nodes { id databaseId name slug count } }
+    ... on ProductWithAttributes {
+      attributes { nodes { name label options visible variation } }
+    }
     ... on SimpleProduct { price regularPrice salePrice stockStatus stockQuantity }
     ... on VariableProduct {
       price regularPrice salePrice stockStatus stockQuantity
@@ -17,12 +20,21 @@ export const PRODUCT_FIELDS = gql`
 
 export const GET_PRODUCTS = gql`
   ${PRODUCT_FIELDS}
-  query GetProducts($first: Int = 48, $after: String) {
-    products(first: $first, after: $after) {
+  query GetProducts($first: Int = 24, $after: String, $where: RootQueryToProductConnectionWhereArgs) {
+    products(first: $first, after: $after, where: $where) {
       nodes { ...ProductFields }
       pageInfo { hasNextPage endCursor }
     }
-    productCategories(first: 50) { nodes { id name slug } }
+    productCategories(first: 100, where: { hideEmpty: false }) {
+      nodes {
+        id databaseId name slug count
+        parent { node { id name slug } }
+        children(first: 50) { nodes { id databaseId name slug count } }
+      }
+    }
+    productTags(first: 100, where: { hideEmpty: false }) {
+      nodes { id databaseId name slug count }
+    }
   }
 `;
 
