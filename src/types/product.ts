@@ -29,6 +29,31 @@ export interface ProductAttribute {
   variation?: boolean;
 }
 
+export interface NexoPcHardware {
+  componentTypeSlug: string;
+  componentTypeName: string;
+  socketId?: number | null;
+  memoryTypeId?: number | null;
+  formFactorId?: number | null;
+  storageInterfaceId?: number | null;
+  storageInterfaceSlug?: string | null;
+  supportedMemoryTypeIds?: number[];
+  supportedStorageInterfaceIds?: number[];
+  supportedFormFactorIds?: number[];
+  tdpWatts?: number | null;
+  capacityGb?: number | null;
+  gpuLengthMm?: number | null;
+  gpuSlots?: number | null;
+  recommendedPsuWatts?: number | null;
+  maxGpuLengthMm?: number | null;
+  maxCoolerHeightMm?: number | null;
+  bays25?: number | null;
+  bays35?: number | null;
+  continuousWatts?: number | null;
+  m2Slots?: number | null;
+  sataPorts?: number | null;
+}
+
 export interface Variation {
   id: string;
   databaseId: number;
@@ -53,6 +78,7 @@ export interface Product {
   productCategories?: { nodes: ProductCategory[] };
   productTags?: { nodes: ProductTag[] };
   attributes?: { nodes: ProductAttribute[] };
+  nexopcHardware?: NexoPcHardware | null;
   price?: string;
   regularPrice?: string;
   salePrice?: string;

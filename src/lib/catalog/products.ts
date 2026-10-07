@@ -23,8 +23,8 @@ const demoTags: ProductTag[] = [
 ];
 
 const demoProducts: Product[] = [
-  { id: "demo-cpu", databaseId: 1001, name: "Procesador de demostración", slug: "procesador-demo", sku: "DEMO-CPU", image: null, price: "S/ 899.00", stockStatus: "IN_STOCK", productCategories: { nodes: [demoCategories[0]] }, productTags: { nodes: [demoTags[1]] }, attributes: { nodes: [{ name: "Socket", options: ["AM5"] }] } },
-  { id: "demo-ram", databaseId: 1002, name: "Memoria de demostración", slug: "memoria-demo", sku: "DEMO-RAM", image: null, price: "S/ 329.00", stockStatus: "IN_STOCK", productCategories: { nodes: [demoCategories[1]] }, productTags: { nodes: [demoTags[0]] }, attributes: { nodes: [{ name: "Tipo de RAM", options: ["DDR5"] }] } },
+  { id: "demo-cpu", databaseId: 1001, name: "Procesador de demostración", slug: "procesador-demo", sku: "DEMO-CPU", image: null, price: "S/ 899.00", stockStatus: "IN_STOCK", productCategories: { nodes: [demoCategories[0]] }, productTags: { nodes: [demoTags[1]] }, nexopcHardware: { componentTypeSlug: "procesador", componentTypeName: "Procesador", socketId: 2, tdpWatts: 65 } },
+  { id: "demo-ram", databaseId: 1002, name: "Memoria de demostración", slug: "memoria-demo", sku: "DEMO-RAM", image: null, price: "S/ 329.00", stockStatus: "IN_STOCK", productCategories: { nodes: [demoCategories[1]] }, productTags: { nodes: [demoTags[0]] }, nexopcHardware: { componentTypeSlug: "memoria_ram", componentTypeName: "Memoria RAM", memoryTypeId: 2, capacityGb: 16 } },
 ];
 
 export class CatalogSourceError extends Error {
