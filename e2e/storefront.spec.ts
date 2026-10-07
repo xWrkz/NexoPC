@@ -6,7 +6,18 @@ test("busca por nombre parcial y conserva el filtro en la URL", async ({ page })
   const search = page.getByLabel("Buscar en catálogo");
   await search.fill("tes");
   await expect(page).toHaveURL(/q=tes/, { timeout: 5_000 });
-  await expect(page.getByText(/resultados? en esta página/i)).toBeVisible();
+  await expect(page.getByText(/resultados? encontrados/i)).toBeVisible();
+});
+
+test("el catálogo mantiene filtros en escritorio y los abre en móvil", async ({ page }, testInfo) => {
+  await page.goto("/tienda");
+  if (testInfo.project.name === "mobile") {
+    await page.getByRole("button", { name: /filtros/i }).click();
+    await expect(page.getByRole("heading", { name: /filtros del catálogo/i })).toBeVisible();
+  } else {
+    await expect(page.getByRole("heading", { name: "Filtros" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^filtros/i })).toBeHidden();
+  }
 });
 
 test("la home ofrece rutas para públicos diferentes", async ({ page }) => {

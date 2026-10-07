@@ -10,9 +10,10 @@ interface CatalogFiltersProps {
   categories: ProductCategory[];
   tags: ProductTag[];
   usages: UsageProfile[];
+  placement?: "toolbar" | "sidebar";
 }
 
-export default function CatalogFilters({ categories, tags, usages }: CatalogFiltersProps) {
+export default function CatalogFilters({ categories, tags, usages, placement = "toolbar" }: CatalogFiltersProps) {
   const router = useRouter();
   const current = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -105,17 +106,18 @@ export default function CatalogFilters({ categories, tags, usages }: CatalogFilt
     <fieldset><legend className="filter-title">Disponibilidad</legend><div className="mt-3 grid gap-2"><label className="select-shell"><select value={current.get("stock") ?? ""} onChange={(event) => setSingle("stock", event.target.value)}><option value="">Todo el catálogo</option><option value="in-stock">Disponible</option><option value="out-of-stock">Agotado</option></select><ChevronDown size={15}/></label><button type="button" onClick={() => setSingle("oferta", current.get("oferta") === "1" ? "" : "1")} aria-pressed={current.get("oferta") === "1"} className={`filter-option ${current.get("oferta") === "1" ? "filter-option-active" : ""}`}><span className="filter-check">{current.get("oferta") === "1" ? <Check size={12}/> : null}</span>Solo ofertas</button></div></fieldset>
   </div>;
 
+  if (placement === "sidebar") return <aside className="catalog-sidebar"><div className="mb-6 flex items-center justify-between"><div><p className="eyebrow">Refina la selección</p><h2 className="mt-1 text-lg font-bold">Filtros</h2></div>{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</div>{controls}{activeCount ? <button type="button" onClick={() => { setQuery(""); router.push("/tienda", { scroll: false }); }} className="btn-secondary focus-ring mt-7 w-full"><X size={15}/>Limpiar filtros</button> : null}</aside>;
+
   return <>
     <div className="catalog-toolbar">
       <form onSubmit={submit} className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cyan-300/70" size={18}/><input name="q" className="field h-12 pl-11" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca por parte del nombre o SKU…" aria-label="Buscar en catálogo"/>{query ? <button type="button" onClick={() => setQuery("")} className="focus-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 hover:text-white" aria-label="Borrar búsqueda"><X size={16}/></button> : null}</form>
       <label className="select-shell min-w-48"><select value={current.get("orden") ?? "featured"} onChange={(event) => setSingle("orden", event.target.value)} aria-label="Ordenar productos"><option value="featured">Recomendados</option><option value="newest">Más recientes</option><option value="price-asc">Menor precio</option><option value="price-desc">Mayor precio</option><option value="name">Nombre A–Z</option></select><ChevronDown size={15}/></label>
-      <button type="button" onClick={() => setOpen(true)} className="btn-secondary focus-ring lg:hidden"><SlidersHorizontal size={18}/>Filtros{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</button>
+      <button type="button" onClick={() => setOpen(true)} className="catalog-mobile-filter focus-ring"><SlidersHorizontal size={18}/>Filtros{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</button>
     </div>
 
     {activeCount ? <div className="mt-4 flex flex-wrap items-center gap-2"><span className="mr-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500"><Filter size={13}/>Activos</span>{[...selectedCategories.map((value) => ({ key: "categoria", value, label: categories.find((item) => item.slug === value)?.name ?? value })), ...selectedTags.map((value) => ({ key: "etiqueta", value, label: tags.find((item) => item.slug === value)?.name ?? value })), ...selectedUsages.map((value) => ({ key: "uso", value, label: usages.find((item) => item.id === value)?.label ?? value }))].map((chip) => <button type="button" key={`${chip.key}-${chip.value}`} onClick={() => toggle(chip.key, chip.value)} className="active-filter">{chip.label}<X size={13}/></button>)}{current.get("q") ? <button type="button" onClick={() => setQuery("")} className="active-filter">“{current.get("q")}”<X size={13}/></button> : null}<button type="button" onClick={() => { setQuery(""); router.push("/tienda", { scroll: false }); }} className="ml-1 text-xs font-bold text-orange-300 hover:text-orange-200">Limpiar todo</button></div> : null}
 
     <AnimatePresence>{open ? <m.div className="fixed inset-0 z-[80] lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><button className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)} aria-label="Cerrar filtros"/><m.aside initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 28, stiffness: 260 }} className="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-auto rounded-t-3xl border-t border-cyan-300/20 bg-[#090d16] p-5"><div className="mb-6 flex items-center justify-between"><div><p className="eyebrow">Afina tu búsqueda</p><h2 className="mt-1 text-xl font-bold">Filtros del catálogo</h2></div><button type="button" onClick={() => setOpen(false)} className="focus-ring rounded-xl border border-white/10 p-2"><X/></button></div>{controls}<button type="button" onClick={() => setOpen(false)} className="btn-primary focus-ring sticky bottom-2 mt-7 w-full"><Sparkles size={17}/>Ver resultados</button></m.aside></m.div> : null}</AnimatePresence>
 
-    <aside className="catalog-sidebar hidden lg:block"><div className="mb-6 flex items-center justify-between"><div><p className="eyebrow">Explora mejor</p><h2 className="mt-1 text-lg font-bold">Filtrar componentes</h2></div>{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</div>{controls}{activeCount ? <button type="button" onClick={() => { setQuery(""); router.push("/tienda", { scroll: false }); }} className="btn-secondary focus-ring mt-7 w-full"><X size={15}/>Limpiar filtros</button> : null}</aside>
   </>;
 }
