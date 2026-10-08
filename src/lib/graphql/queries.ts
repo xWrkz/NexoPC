@@ -12,11 +12,11 @@ export const PRODUCT_FIELDS = gql`
     }
     ... on SimpleProduct {
       price regularPrice salePrice stockStatus stockQuantity
-      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
     }
     ... on VariableProduct {
       price regularPrice salePrice stockStatus stockQuantity
-      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
       variations(first: 30) { nodes { id databaseId name price regularPrice stockStatus image { sourceUrl altText } } }
     }
   }

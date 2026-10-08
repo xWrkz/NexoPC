@@ -42,6 +42,7 @@ export interface NexoPcHardware {
   supportedFormFactorIds?: number[];
   tdpWatts?: number | null;
   capacityGb?: number | null;
+  gpuMemoryGb?: number | null;
   gpuLengthMm?: number | null;
   gpuSlots?: number | null;
   recommendedPsuWatts?: number | null;
