@@ -13,7 +13,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://nexopc.wrkz.net"),
   title: { default: "NexoPC — Tu próxima PC empieza aquí", template: "%s · NexoPC" },
   description: "Componentes, PCs armadas y acompañamiento para estudiar, trabajar, crear y jugar.",
-  icons: { icon: "/brand/favicon-32.png", apple: "/brand/apple-touch-icon.png" },
+  icons: {
+    icon: "/brand/Icon.png",
+    shortcut: "/brand/Icon.png",
+    apple: "/brand/Icon.png",
+  },
   openGraph: { title: "NexoPC — Tu próxima PC empieza aquí", description: "Elige componentes reales o construye tu PC paso a paso.", images: ["/brand/app-icon-512.png"], locale: "es_PE", type: "website" },
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -294,9 +294,7 @@ button:disabled { cursor: not-allowed; }
 
 /* Storefront premium pass */
 .brand-wordmark { position: relative; display: inline-block; width: 9.5rem; line-height: 0; }
-.brand-wordmark-base { display: block; width: 100%; height: auto; }
-.brand-wordmark-nexo { position: absolute; inset: 0 auto 0 0; width: 60%; overflow: hidden; }
-.brand-wordmark-nexo img { width: 9.5rem !important; max-width: none; height: auto !important; filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(255,255,255,.08)); }
+.brand-wordmark-base { display: block; width: 100%; height: auto; object-fit: contain; }
 .site-header { background: rgba(3,6,11,.93); box-shadow: 0 14px 38px rgba(0,0,0,.24); }
 .brand-link { min-width: 9.5rem; }
 .header-icon-button { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border: 1px solid rgba(148,163,184,.2); border-radius: .78rem; color: #cbd5e1; background: rgba(255,255,255,.035); transition: .2s; }
@@ -344,7 +342,6 @@ button:disabled { cursor: not-allowed; }
 .site-footer { position: relative; margin-top: 6rem; overflow: hidden; border-top: 1px solid rgba(255,255,255,.08); background: #05070c; }
 .footer-glow { position: absolute; top: -14rem; left: 8%; width: 34rem; height: 24rem; border-radius: 50%; background: radial-gradient(circle,rgba(255,100,0,.09),transparent 68%); filter: blur(12px); }
 .footer-logo { width: 10.5rem; }
-.footer-logo .brand-wordmark-nexo img { width: 10.5rem !important; }
 .footer-help { display: inline-flex; align-items: center; gap: .45rem; margin-top: 1.25rem; color: #a9efff; font-size: .82rem; font-weight: 850; }
 .footer-link { transition: color .2s; }
 .footer-link:hover { color: #ffb15e; }
