@@ -22,6 +22,7 @@ export default function Header() {
     event.preventDefault();
     router.push(`/tienda${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ""}`);
     setOpen(false);
+    setSearchOpen(false);
   };
 
   return <header className="site-header"><div className="mx-auto flex h-[4.8rem] max-w-[90rem] items-center gap-2 px-4 sm:px-6">

@@ -14,4 +14,9 @@ describe("cartStore", () => {
     expect(useCartStore.getState().items[0].quantity).toBe(20);
     expect(useCartStore.getState().getTotal()).toBe(10000);
   });
+
+  it("rechaza productos sin precio comercial válido", () => {
+    useCartStore.getState().addItem({ id: "sin-precio", productId: 2, name: "Por confirmar", price: 0, quantity: 1 });
+    expect(useCartStore.getState().items).toEqual([]);
+  });
 });

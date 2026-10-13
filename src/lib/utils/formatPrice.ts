@@ -1,5 +1,5 @@
 export function formatPrice(price?: string): string {
-    if (!price) return "Consultar";
+    if (!price) return "Precio por confirmar";
 
     const cleaned = price
         .replace(/&nbsp;/g, "")
@@ -9,7 +9,7 @@ export function formatPrice(price?: string): string {
         .trim();
 
     const num = parseFloat(cleaned);
-    if (isNaN(num)) return "Consultar";
+    if (isNaN(num) || num <= 0) return "Precio por confirmar";
 
     return `S/ ${num.toFixed(2)}`;
 }
