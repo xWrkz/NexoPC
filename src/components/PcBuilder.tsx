@@ -6,7 +6,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { AlertTriangle, Check, CheckCircle2, ChevronRight, CircleHelp, Cpu, Gauge, HardDrive, Info, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Product } from "@/types/product";
-import { BuilderCategory, ComponentePC } from "@/lib/compatibility/rules";
+import { BuilderCategory, ComponentePC, ComponentSpecs } from "@/lib/compatibility/rules";
 import { useBuilderStore } from "@/store/builderStore";
 import { useCartStore } from "@/store/cartStore";
 import { getPriceValue, hasValidPrice } from "@/lib/utils/price";
