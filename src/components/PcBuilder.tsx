@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Cpu, Gauge, HardDrive, Info, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Copy, Cpu, Gauge, HardDrive, Info, Layers, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Product } from "@/types/product";
 import { BuilderCategory, ComponentePC, ComponentSpecs, validarCompatibilidad } from "@/lib/compatibility/rules";
@@ -328,7 +328,20 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const [search, setSearch] = useState("");
   const [onlyCompatible, setOnlyCompatible] = useState(true);
   const [onlyRecommended, setOnlyRecommended] = useState(false);
-  const { seleccion, result, setComponente, getTotal, reset } = useBuilderStore();
+  const {
+    seleccion,
+    configsByGoal,
+    result,
+    setComponente,
+    loadGoal,
+    copyCurrentToGoal,
+    resetCurrentGoal,
+    getTotal,
+  } = useBuilderStore();
+  const [pendingGoalChange, setPendingGoalChange] = useState<{
+    targetGoalId: string;
+    targetLabel: string;
+  } | null>(null);
 
   useEffect(() => {
     if (activeCategory) {
@@ -402,32 +415,95 @@ export default function PcBuilder({ products }: { products: Product[] }) {
     if (!activeCategory || !hasValidPrice(product.price)) return;
     const current = seleccion[activeCategory];
     if (current && current.id === product.id) {
-      setComponente(activeCategory, null);
+      setComponente(activeCategory, null, goal);
       return;
     }
-    setComponente(activeCategory, toComponent(product, activeCategory));
+    setComponente(activeCategory, toComponent(product, activeCategory), goal);
     const next = steps.find((step) => !seleccion[step.key] && step.key !== activeCategory);
     setActiveCategory(next?.key ?? null);
     setSearch("");
   };
+
+  const handleGoalClick = (targetGoalId: string) => {
+    if (targetGoalId === goal) return;
+    const currentPieces = selected.length;
+    if (currentPieces > 0) {
+      const targetLabel = goals.find((g) => g.id === targetGoalId)?.label ?? targetGoalId;
+      setPendingGoalChange({
+        targetGoalId,
+        targetLabel,
+      });
+      return;
+    }
+    loadGoal(targetGoalId, goal);
+    setGoal(targetGoalId);
+  };
   const addBuild = () => {
     if (!selected.length || result.errors.length || pendingPrices) return;
     const buildId = `build-${Date.now()}`;
-    selected.forEach((item) => addItem({ id: `${buildId}-${item.id}`, productId: item.productId, name: item.nombre, price: item.precio, quantity: 1, image: item.image, category: item.categoria, buildId, buildName: "PC personalizada NexoPC" }));
-    reset();
+    const goalLabel = goals.find((g) => g.id === goal)?.label ?? "Personalizada";
+    selected.forEach((item) =>
+      addItem({
+        id: `${buildId}-${item.id}`,
+        productId: item.productId,
+        name: item.nombre,
+        price: item.precio,
+        quantity: 1,
+        image: item.image,
+        category: item.categoria,
+        buildId,
+        buildName: `PC ${goalLabel} NexoPC`,
+      })
+    );
+    resetCurrentGoal(goal);
   };
-  const resetBuild = () => { if (!selected.length || window.confirm("¿Quieres quitar todas las piezas seleccionadas?")) reset(); };
+  const resetBuild = () => {
+    const goalLabel = goals.find((g) => g.id === goal)?.label ?? "este ensamble";
+    if (!selected.length || window.confirm(`¿Quieres quitar todas las piezas seleccionadas de ${goalLabel}?`)) {
+      resetCurrentGoal(goal);
+    }
+  };
 
-  return <div className="builder-shell"><div className="builder-modebar"><div><p className="eyebrow">Elige cómo avanzar</p><h2 className="mt-1 text-xl font-bold">Tú decides cuánto acompañamiento necesitas</h2></div><div className="builder-mode-switch" role="group" aria-label="Modo del armador"><button type="button" onClick={() => setMode("guided")} aria-pressed={mode === "guided"} className={mode === "guided" ? "active" : ""}><Sparkles size={16}/>Guíame paso a paso</button><button type="button" onClick={() => setMode("advanced")} aria-pressed={mode === "advanced"} className={mode === "advanced" ? "active" : ""}><Cpu size={16}/>Sé qué componentes quiero</button></div></div>
+  return (
+    <div className="builder-shell"><div className="builder-modebar"><div><p className="eyebrow">Elige cómo avanzar</p><h2 className="mt-1 text-xl font-bold">Tú decides cuánto acompañamiento necesitas</h2></div><div className="builder-mode-switch" role="group" aria-label="Modo del armador"><button type="button" onClick={() => setMode("guided")} aria-pressed={mode === "guided"} className={mode === "guided" ? "active" : ""}><Sparkles size={16}/>Guíame paso a paso</button><button type="button" onClick={() => setMode("advanced")} aria-pressed={mode === "advanced"} className={mode === "advanced" ? "active" : ""}><Cpu size={16}/>Sé qué componentes quiero</button></div></div>
 
-    <AnimatePresence initial={false}>{mode === "guided" ? <m.section initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="builder-guide"><div><p className="filter-title">1. ¿Cuál es tu objetivo principal?</p><div className="mt-3 flex flex-wrap gap-2">{goals.map((item) => <button type="button" key={item.id} onClick={() => setGoal(item.id)} className={`filter-chip ${goal === item.id ? "filter-chip-active" : ""}`}>{item.label}</button>)}</div></div><label className="builder-budget"><span>2. Presupuesto aproximado</span><div className="builder-budget-wrap"><span>S/</span><input type="number" min="0" step="100" value={budget ?? ""} onChange={(event) => setBudget(event.target.value ? Number(event.target.value) : undefined)} placeholder="Ej. 3000"/><div className="price-stepper-actions"><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) + 100))} className="stepper-arrow-btn" aria-label="Aumentar presupuesto en 100"><ChevronUp size={12}/></button><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) - 100))} className="stepper-arrow-btn" aria-label="Disminuir presupuesto en 100"><ChevronDown size={12}/></button></div></div><small>Lo usaremos como referencia; no ocultaremos piezas por precio.</small></label></m.section> : null}</AnimatePresence>
+    <AnimatePresence initial={false}>{mode === "guided" ? <m.section initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="builder-guide"><div><p className="filter-title">1. ¿Cuál es tu objetivo principal?</p><div className="mt-3 flex flex-wrap gap-2">
+                {goals.map((item) => {
+                  const savedInGoal = configsByGoal[item.id]
+                    ? Object.values(configsByGoal[item.id]).filter(Boolean).length
+                    : 0;
+                  const pieceCount = item.id === goal ? selected.length : savedInGoal;
+
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => handleGoalClick(item.id)}
+                      className={`filter-chip relative transition-all ${goal === item.id ? "filter-chip-active" : ""}`}
+                    >
+                      <span>{item.label}</span>
+                      {pieceCount > 0 ? (
+                        <span
+                          className={`ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                            goal === item.id
+                              ? "bg-orange-500/30 text-orange-200"
+                              : "bg-white/10 text-slate-300"
+                          }`}
+                        >
+                          {pieceCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div></div><label className="builder-budget"><span>2. Presupuesto aproximado</span><div className="builder-budget-wrap"><span>S/</span><input type="number" min="0" step="100" value={budget ?? ""} onChange={(event) => setBudget(event.target.value ? Number(event.target.value) : undefined)} placeholder="Ej. 3000"/><div className="price-stepper-actions"><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) + 100))} className="stepper-arrow-btn" aria-label="Aumentar presupuesto en 100"><ChevronUp size={12}/></button><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) - 100))} className="stepper-arrow-btn" aria-label="Disminuir presupuesto en 100"><ChevronDown size={12}/></button></div></div><small>Lo usaremos como referencia; no ocultaremos piezas por precio.</small></label></m.section> : null}</AnimatePresence>
 
     <div className="builder-workspace"><aside className="builder-steps"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black uppercase tracking-[.16em] text-slate-500">Componentes</span><strong className="text-sm text-cyan-200">{selected.length}/{steps.length}</strong></div>{steps.map((step, index) => { const current = seleccion[step.key]; const available = optionsByCategory[step.key].length; const Icon = step.icon; return <button type="button" key={step.key} onClick={() => setActiveCategory(step.key)} className={`builder-step focus-ring ${current ? "builder-step-complete" : ""} ${activeCategory === step.key ? "builder-step-active" : ""}`}><span className="builder-step-number">{current ? <Check size={14}/> : index + 1}</span><Icon size={17}/><span className="min-w-0 flex-1 text-left"><strong>{step.label}</strong><small>{current ? current.nombre : available ? `${available} ${available === 1 ? "opción" : "opciones"}` : "Sin ficha técnica"}</small></span><ChevronRight size={15}/></button>; })}{unclassified ? <p className="mt-4 flex gap-2 rounded-xl border border-amber-300/12 bg-amber-300/5 p-3 text-[11px] leading-5 text-amber-100/70"><Info size={14} className="mt-0.5 shrink-0"/>{unclassified} {unclassified === 1 ? "producto aún no tiene" : "productos aún no tienen"} tipo de componente y ficha técnica; no aparecerán en el armador hasta completarlos.</p> : null}</aside>
 
       <section className="builder-stage"><div className="builder-stage-header"><div><p className="eyebrow">Vista de tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">Tu equipo toma forma aquí.</h2></div><div className="builder-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}%</span></div></div><div className="pc-chassis"><div className="tech-grid absolute inset-0 opacity-50"/><span className="pc-energy-line"/><Image src="/brand/icon-mark.webp" width={110} height={73} alt="" className="pc-brand-mark"/><div className="pc-slot-grid">{steps.map((step, index) => { const item = seleccion[step.key]; const Icon = step.icon; return <m.button type="button" layout key={step.key} onClick={() => setActiveCategory(step.key)} className={`pc-slot focus-ring ${item ? "pc-slot-filled" : ""}`} initial={false} animate={item && !reduce ? { scale: [1, 1.06, 1] } : {}} transition={{ duration: .45 }}><span className="pc-slot-icon"><Icon size={18}/></span><span><small>{step.short}</small><strong>{item ? item.nombre : "Pendiente"}</strong></span>{item ? <CheckCircle2 size={16} className="ml-auto text-emerald-300"/> : <Plus size={15} className="ml-auto text-slate-600"/>}<span className="pc-slot-order">0{index + 1}</span></m.button>; })}</div></div><div className="builder-stage-tip"><CircleHelp size={17}/><span><strong>{mode === "guided" ? `Modo guiado: ${goals.find((item) => item.id === goal)?.label}` : "Modo avanzado"}.</strong> Selecciona cualquier módulo para comparar componentes del catálogo.</span></div></section>
 
 
-      <aside className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{formatPrice(String(item.precio))}</strong><button type="button" onClick={() => setComponente(item.categoria, null)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige un módulo del gabinete para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className="price text-2xl">S/ {total.toFixed(2)}</span></div>{budget ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length)} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>Añadir configuración</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
+      <aside className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{formatPrice(String(item.precio))}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige un módulo del gabinete para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className="price text-2xl">S/ {total.toFixed(2)}</span></div>{budget ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length)} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>Añadir configuración</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
 
     </div>
 
@@ -584,5 +660,144 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
         </m.div>
       ) : null}
     </AnimatePresence>
-  </div>;
+
+      {/* Modal de confirmación al cambiar de modo con piezas activas */}
+      <AnimatePresence>
+        {pendingGoalChange ? (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            {/* Fondo con desenfoque */}
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPendingGoalChange(null)}
+              className="absolute inset-0 bg-slate-950/85 backdrop-blur-md"
+            />
+
+            {/* Diálogo emergente */}
+            <m.div
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl backdrop-blur-xl"
+              role="dialog"
+              aria-modal="true"
+            >
+              {/* Botón de cerrar */}
+              <button
+                type="button"
+                onClick={() => setPendingGoalChange(null)}
+                className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white focus-ring transition"
+                aria-label="Cerrar modal"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Encabezado */}
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30">
+                  <Layers size={22} />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400">
+                    Cambiar objetivo de ensamble
+                  </span>
+                  <h3 className="text-lg font-bold text-white">
+                    ¿Cómo deseas continuar en {pendingGoalChange.targetLabel}?
+                  </h3>
+                </div>
+              </div>
+
+              {/* Mensaje contextual */}
+              <div className="mt-4 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs leading-relaxed text-slate-300">
+                <p>
+                  Tienes <strong className="text-orange-300 font-semibold">{selected.length} de 8 componentes</strong> configurados para <strong className="text-white font-semibold">{goals.find((g) => g.id === goal)?.label ?? goal}</strong>. Cada objetivo mantiene su configuración de forma independiente sin perder piezas.
+                </p>
+              </div>
+
+              {/* Opciones interactivas */}
+              <div className="mt-5 space-y-3">
+                {/* Opción 1: Nuevo ensamble o cargar ensamble guardado */}
+                {(() => {
+                  const targetSavedCount = configsByGoal[pendingGoalChange.targetGoalId]
+                    ? Object.values(configsByGoal[pendingGoalChange.targetGoalId]).filter(Boolean).length
+                    : 0;
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        loadGoal(pendingGoalChange.targetGoalId, goal);
+                        setGoal(pendingGoalChange.targetGoalId);
+                        setPendingGoalChange(null);
+                      }}
+                      className="group relative flex w-full items-start gap-3.5 rounded-xl border border-amber-400/40 bg-amber-400/5 p-4 text-left transition hover:border-amber-400 hover:bg-amber-400/10 focus-ring"
+                    >
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-400/20 text-amber-300">
+                        <Sparkles size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white group-hover:text-amber-200">
+                            {targetSavedCount > 0
+                              ? `Cargar ensamble guardado (${targetSavedCount} piezas)`
+                              : `Nuevo ensamble para ${pendingGoalChange.targetLabel}`}
+                          </span>
+                          <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                            Recomendado
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400 leading-normal">
+                          {targetSavedCount > 0
+                            ? `Tu ensamble actual de ${goals.find((g) => g.id === goal)?.label} queda guardado y recuperas las ${targetSavedCount} piezas de ${pendingGoalChange.targetLabel}.`
+                            : `Guarda tu ensamble de ${goals.find((g) => g.id === goal)?.label} y empieza en blanco con recomendaciones personalizadas para ${pendingGoalChange.targetLabel}.`}
+                        </p>
+                      </div>
+                      <ArrowRight size={16} className="mt-1 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-amber-300" />
+                    </button>
+                  );
+                })()}
+
+                {/* Opción 2: Conservar piezas y traspasar */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyCurrentToGoal(pendingGoalChange.targetGoalId, goal);
+                    setGoal(pendingGoalChange.targetGoalId);
+                    setPendingGoalChange(null);
+                  }}
+                  className="group relative flex w-full items-start gap-3.5 rounded-xl border border-white/10 bg-slate-800/40 p-4 text-left transition hover:border-white/20 hover:bg-slate-800/80 focus-ring"
+                >
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700/50 text-slate-300">
+                    <Copy size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="font-bold text-white group-hover:text-slate-100">
+                      Conservar componentes actuales
+                    </span>
+                    <p className="mt-1 text-xs text-slate-400 leading-normal">
+                      Traspasa tus {selected.length} componentes actuales hacia {pendingGoalChange.targetLabel} y adapta las sugerencias y compatibilidad.
+                    </p>
+                  </div>
+                  <ArrowRight size={16} className="mt-1 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-white" />
+                </button>
+              </div>
+
+              {/* Botón secundario para cancelar */}
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPendingGoalChange(null)}
+                  className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/5 hover:text-white"
+                >
+                  Permanecer en {goals.find((g) => g.id === goal)?.label ?? "el modo actual"}
+                </button>
+              </div>
+            </m.div>
+          </div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
 }
