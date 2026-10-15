@@ -1,4 +1,4 @@
-export type BuilderCategory = "cpu" | "motherboard" | "ram" | "gpu" | "storage" | "psu" | "case";
+export type BuilderCategory = "cpu" | "motherboard" | "ram" | "gpu" | "storage" | "psu" | "case" | "cooler";
 export interface ComponentSpecs {
   socketId?: number; memoryTypeId?: number; formFactorId?: number; storageInterfaceId?: number; storageInterfaceSlug?: string;
   supportedMemoryTypeIds?: number[]; supportedStorageInterfaceIds?: number[]; supportedFormFactorIds?: number[];
