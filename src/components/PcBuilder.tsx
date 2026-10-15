@@ -238,6 +238,84 @@ function toComponent(product: Product, category: BuilderCategory): ComponentePC 
   };
 }
 
+
+function getProductRecommendation(
+  product: Product,
+  category: BuilderCategory,
+  goal: string
+): { isRecommended: boolean; reason?: string } {
+  const name = (product.name || "").toLowerCase();
+  const desc = (product.description || "").toLowerCase();
+
+  const isRyzen5or7 = name.includes("ryzen 5") || name.includes("ryzen 7");
+  const isRyzen9orCoreI9 = name.includes("ryzen 9") || name.includes("i9") || name.includes("ultra 9");
+  const isCoreI5orI7 = name.includes("i5") || name.includes("i7") || name.includes("ultra 5") || name.includes("ultra 7");
+  const isCoreI3orEntry = name.includes("i3") || name.includes("3200g") || name.includes("3400g") || name.includes("4600g") || name.includes("5600g");
+
+  const is32Gb = name.includes("32gb") || name.includes("2x16gb");
+  const is16Gb = name.includes("16gb") || name.includes("2x8gb");
+  const is64Gb = name.includes("64gb") || name.includes("2x32gb");
+
+  const isMidHighGpu = name.includes("4070") || name.includes("4060 ti") || name.includes("7700") || name.includes("7800") || name.includes("6700");
+  const isTopGpu = name.includes("4080") || name.includes("4090") || name.includes("7900") || name.includes("5080") || name.includes("5090");
+  const isEntryMidGpu = name.includes("4060") || name.includes("3060") || name.includes("7600") || name.includes("6600");
+
+  const isNvme1Tb = (name.includes("1tb") || name.includes("1000gb")) && (name.includes("nvme") || name.includes("m.2"));
+  const isNvme2Tb = (name.includes("2tb") || name.includes("2000gb")) && (name.includes("nvme") || name.includes("m.2"));
+  const isNvme500Gb = (name.includes("500gb") || name.includes("512gb")) && (name.includes("nvme") || name.includes("m.2"));
+
+  const isPsu650_750 = name.includes("650") || name.includes("750") || desc.includes("650 w") || desc.includes("750 w");
+  const isPsu850Plus = name.includes("850") || name.includes("1000") || desc.includes("850 w") || desc.includes("1000 w");
+  const isPsu500_600 = name.includes("500") || name.includes("550") || name.includes("600");
+
+  switch (goal) {
+    case "gaming":
+      if (category === "cpu" && (isRyzen5or7 || isCoreI5orI7)) return { isRecommended: true, reason: "Alto rendimiento por núcleo ideal para gaming" };
+      if (category === "gpu" && (isEntryMidGpu || isMidHighGpu)) return { isRecommended: true, reason: "Excelente tasa de FPS y gráficos fluidos" };
+      if (category === "ram" && (is16Gb || is32Gb)) return { isRecommended: true, reason: "Capacidad y velocidad óptimas para juegos modernos" };
+      if (category === "storage" && (isNvme1Tb || isNvme2Tb)) return { isRecommended: true, reason: "Carga rápida de mapas y texturas pesadas" };
+      if (category === "psu" && (isPsu650_750 || isPsu850Plus)) return { isRecommended: true, reason: "Potencia estable con margen para tarjeta gráfica" };
+      if (category === "motherboard" && (name.includes("b650") || name.includes("b760") || name.includes("gaming") || name.includes("tuf") || name.includes("aorus"))) return { isRecommended: true, reason: "Chipset balanceado con soporte PCIe veloz" };
+      if (category === "case" && (name.includes("mesh") || name.includes("flow") || name.includes("air") || name.includes("rgb"))) return { isRecommended: true, reason: "Flujo de aire optimizado para mantener bajas temperaturas" };
+      if (category === "cooler" && (name.includes("liquid") || name.includes("240") || name.includes("360") || name.includes("peerless") || name.includes("ak620"))) return { isRecommended: true, reason: "Disipación térmica constante durante sesiones intensas" };
+      break;
+
+    case "creation":
+      if (category === "cpu" && (isRyzen9orCoreI9 || isCoreI5orI7 || name.includes("i7"))) return { isRecommended: true, reason: "Muchos núcleos e hilos para renderizado y exportación rápida" };
+      if (category === "ram" && (is32Gb || is64Gb)) return { isRecommended: true, reason: "Memoria amplia para Premiere, Blender y multitarea pesada" };
+      if (category === "gpu" && (isMidHighGpu || isTopGpu || name.includes("16gb") || name.includes("12gb"))) return { isRecommended: true, reason: "VRAM generosa para aceleración 3D y edición de video" };
+      if (category === "storage" && (isNvme2Tb || isNvme1Tb)) return { isRecommended: true, reason: "Transferencia ultra rápida para archivos de video pesados" };
+      if (category === "psu" && (isPsu650_750 || isPsu850Plus)) return { isRecommended: true, reason: "Energía continua certificada para cargas de render al 100%" };
+      break;
+
+    case "programming":
+      if (category === "cpu" && (isCoreI5orI7 || isRyzen5or7)) return { isRecommended: true, reason: "Compilación rápida y soporte ágil de virtualización" };
+      if (category === "ram" && is32Gb) return { isRecommended: true, reason: "Capacidad recomendada para Docker, IDEs y máquinas virtuales" };
+      if (category === "storage" && isNvme1Tb) return { isRecommended: true, reason: "Lectura/escritura veloz de repositorios y proyectos" };
+      if (category === "gpu" && isEntryMidGpu) return { isRecommended: true, reason: "Suficiente para múltiples monitores 4K y aceleración básica" };
+      break;
+
+    case "work":
+      if (category === "cpu" && (isCoreI5orI7 || isRyzen5or7 || isCoreI3orEntry)) return { isRecommended: true, reason: "Rendimiento eficiente y confiable para oficina y multitarea" };
+      if (category === "ram" && (is16Gb || is32Gb)) return { isRecommended: true, reason: "Fluidez constante sin saturación de memoria" };
+      if (category === "storage" && (isNvme500Gb || isNvme1Tb)) return { isRecommended: true, reason: "Inicio instantáneo de programas y sistema operativo" };
+      if (category === "psu" && isPsu500_600) return { isRecommended: true, reason: "Consumo contenido y alta durabilidad" };
+      break;
+
+    case "study":
+    case "first-pc":
+    default:
+      if (category === "cpu" && (isCoreI3orEntry || isRyzen5or7)) return { isRecommended: true, reason: "Excelente relación calidad/precio para empezar" };
+      if (category === "ram" && is16Gb) return { isRecommended: true, reason: "El estándar recomendado para todas las tareas cotidianas" };
+      if (category === "storage" && (isNvme500Gb || isNvme1Tb)) return { isRecommended: true, reason: "Espacio y velocidad para trabajos, clases y proyectos" };
+      if (category === "gpu" && isEntryMidGpu) return { isRecommended: true, reason: "Gráficos dedicados accesibles con gran versatilidad" };
+      if (category === "psu" && (isPsu500_600 || isPsu650_750)) return { isRecommended: true, reason: "Fuente confiable con margen para futuras mejoras" };
+      break;
+  }
+
+  return { isRecommended: false };
+}
+
 export default function PcBuilder({ products }: { products: Product[] }) {
   const params = useSearchParams();
   const reduce = useReducedMotion();
@@ -249,6 +327,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const [activeCategory, setActiveCategory] = useState<BuilderCategory | null>(null);
   const [search, setSearch] = useState("");
   const [onlyCompatible, setOnlyCompatible] = useState(true);
+  const [onlyRecommended, setOnlyRecommended] = useState(false);
   const { seleccion, result, setComponente, getTotal, reset } = useBuilderStore();
 
   useEffect(() => {
@@ -294,9 +373,28 @@ export default function PcBuilder({ products }: { products: Product[] }) {
 
   const displayedOptions = useMemo(() => {
     if (!activeCategory) return [];
-    if (!onlyCompatible) return options;
-    return options.filter((product) => checkCompatibility(product).isCompatible);
-  }, [options, activeCategory, onlyCompatible, checkCompatibility]);
+    let list = onlyCompatible ? options.filter((p) => checkCompatibility(p).isCompatible) : options;
+
+    if (onlyRecommended && (mode === "guided" || goal)) {
+      const recs = list.filter((p) => getProductRecommendation(p, activeCategory, goal).isRecommended);
+      if (recs.length > 0) list = recs;
+    }
+
+    // Sort: currently selected first, then recommended for goal, then normal
+    return [...list].sort((a, b) => {
+      const aSel = seleccion[activeCategory]?.id === a.id;
+      const bSel = seleccion[activeCategory]?.id === b.id;
+      if (aSel !== bSel) return aSel ? -1 : 1;
+
+      if (mode === "guided" || goal) {
+        const aRec = getProductRecommendation(a, activeCategory, goal).isRecommended;
+        const bRec = getProductRecommendation(b, activeCategory, goal).isRecommended;
+        if (aRec !== bRec) return aRec ? -1 : 1;
+      }
+
+      return 0;
+    });
+  }, [options, activeCategory, onlyCompatible, onlyRecommended, checkCompatibility, seleccion, mode, goal]);
   const unclassified = products.filter((product) => !productCategory(product)).length;
   const pendingPrices = selected.filter((item) => item.precio <= 0).length;
 
@@ -371,22 +469,45 @@ export default function PcBuilder({ products }: { products: Product[] }) {
               />
             </div>
 
-            <div className="mt-3 flex shrink-0 items-center justify-between text-xs text-slate-400">
-              <label className="flex cursor-pointer items-center gap-2 select-none">
-                <input
-                  type="checkbox"
-                  checked={onlyCompatible}
-                  onChange={(e) => setOnlyCompatible(e.target.checked)}
-                  className="rounded border-white/20 bg-slate-800 text-orange-500"
-                />
-                <span className="font-medium text-slate-300">Solo componentes compatibles ({displayedOptions.length} de {options.length})</span>
-              </label>
+            {mode === "guided" ? (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200">
+                <Sparkles size={14} className="shrink-0 text-amber-400" />
+                <span>
+                  Opciones recomendadas para <strong>{goals.find((g) => g.id === goal)?.label ?? "tu objetivo"}</strong> priorizadas al inicio.
+                </span>
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap shrink-0 items-center justify-between gap-3 text-xs text-slate-400">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-2 select-none">
+                  <input
+                    type="checkbox"
+                    checked={onlyCompatible}
+                    onChange={(e) => setOnlyCompatible(e.target.checked)}
+                    className="rounded border-white/20 bg-slate-800 text-orange-500"
+                  />
+                  <span className="font-medium text-slate-300">Solo compatibles</span>
+                </label>
+                {mode === "guided" ? (
+                  <label className="flex cursor-pointer items-center gap-2 select-none">
+                    <input
+                      type="checkbox"
+                      checked={onlyRecommended}
+                      onChange={(e) => setOnlyRecommended(e.target.checked)}
+                      className="rounded border-white/20 bg-slate-800 text-amber-500"
+                    />
+                    <span className="font-medium text-amber-300">⭐ Solo recomendados</span>
+                  </label>
+                ) : null}
+              </div>
+              <span className="text-slate-500 text-[11px]">{displayedOptions.length} de {options.length} opciones</span>
             </div>
 
             <div className="mt-4 flex flex-col gap-3 pb-10 w-full min-w-0">
               {displayedOptions.length ? (
                 displayedOptions.map((product) => {
                   const compat = checkCompatibility(product);
+const rec = activeCategory ? getProductRecommendation(product, activeCategory, goal) : { isRecommended: false };
                   const selectedProduct = seleccion[activeStep.key]?.id === product.id;
                   const priced = hasValidPrice(product.price);
                   return (
@@ -395,7 +516,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
                       key={product.id}
                       onClick={() => choose(product)}
                       disabled={!priced}
-                      className={`component-choice focus-ring w-full min-w-0 text-left ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""}`}
+                      className={`component-choice focus-ring w-full min-w-0 text-left ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""} ${rec.isRecommended && !selectedProduct ? "border-amber-400/40 bg-amber-400/[0.02]" : ""}`}
                     >
                       <div className="component-choice-media shrink-0">
                         {product.image ? (
@@ -411,17 +532,33 @@ export default function PcBuilder({ products }: { products: Product[] }) {
                         <h3 className="mt-1 line-clamp-2 text-sm sm:text-base font-bold leading-snug text-slate-100">
                           {product.name}
                         </h3>
-                        {compat.isCompatible ? (
-                          <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-                            <Check size={12} className="shrink-0" />
-                            <span>Compatible</span>
-                          </span>
-                        ) : (
-                          <span className="mt-1 flex items-start gap-1 text-[11px] font-semibold text-rose-400">
-                            <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                            <span className="line-clamp-2 leading-tight">Incompatible: {compat.error}</span>
-                          </span>
-                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          {selectedProduct ? (
+                            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                              <Check size={12} className="shrink-0" />
+                              <span>Seleccionado • Clic para quitar</span>
+                            </span>
+                          ) : compat.isCompatible ? (
+                            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                              <Check size={12} className="shrink-0" />
+                              <span>Compatible</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-start gap-1 text-[11px] font-semibold text-rose-400">
+                              <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                              <span className="line-clamp-2 leading-tight">Incompatible: {compat.error}</span>
+                            </span>
+                          )}
+                          {rec.isRecommended ? (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                              <Sparkles size={11} className="text-amber-400" />
+                              <span>Recomendado ({goals.find((g) => g.id === goal)?.label ?? "Sugerido"})</span>
+                            </span>
+                          ) : null}
+                        </div>
+                        {rec.isRecommended && rec.reason ? (
+                          <p className="mt-1 text-[11px] text-amber-200/80 italic">{rec.reason}</p>
+                        ) : null}
                         <p className={`mt-2 text-base sm:text-lg font-black ${priced ? "text-orange-300" : "text-amber-200"}`}>
                           {formatPrice(product.price)}
                         </p>
