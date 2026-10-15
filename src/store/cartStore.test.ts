@@ -19,4 +19,15 @@ describe("cartStore", () => {
     useCartStore.getState().addItem({ id: "sin-precio", productId: 2, name: "Por confirmar", price: 0, quantity: 1 });
     expect(useCartStore.getState().items).toEqual([]);
   });
+
+  it("elimina un grupo de componentes completo por su buildId", () => {
+    useCartStore.getState().addItem({ id: "cpu-1", productId: 1, name: "CPU", price: 500, quantity: 1, buildId: "build-1" });
+    useCartStore.getState().addItem({ id: "gpu-1", productId: 2, name: "GPU", price: 1200, quantity: 1, buildId: "build-1" });
+    useCartStore.getState().addItem({ id: "mouse", productId: 3, name: "Mouse", price: 80, quantity: 1 });
+
+    expect(useCartStore.getState().items.length).toBe(3);
+    useCartStore.getState().removeBuild("build-1");
+    expect(useCartStore.getState().items.length).toBe(1);
+    expect(useCartStore.getState().items[0].id).toBe("mouse");
+  });
 });

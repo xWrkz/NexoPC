@@ -7,7 +7,7 @@ import { useCartStore } from "@/store/cartStore";
 import { formatPrice } from "@/lib/utils/formatPrice";
 
 export default function Carrito() {
-  const { items, removeItem, updateQuantity, getTotal, clearCart } = useCartStore();
+  const { items, removeItem, removeBuild, updateQuantity, getTotal, clearCart } = useCartStore();
   const grouped = items.reduce<Record<string, typeof items>>((groups, item) => {
     const key = item.buildId ?? "individual";
     (groups[key] ??= []).push(item);
@@ -23,7 +23,29 @@ export default function Carrito() {
     <div className="mt-8 max-w-2xl"><p className="eyebrow">Revisa tu selección</p><h1 className="font-display mt-3 text-4xl font-bold sm:text-5xl">Tu carrito</h1><p className="mt-3 text-slate-400">Comprueba las piezas y cantidades antes de continuar.</p></div>
     <div className="mt-9 grid gap-7 lg:grid-cols-[1.25fr_.75fr]">
       <div className="space-y-5">{Object.entries(grouped).map(([group, groupItems]) => <section className="panel overflow-hidden" key={group}>
-        {group !== "individual" ? <div className="border-b border-white/8 bg-orange-400/5 px-5 py-3 text-sm font-bold text-orange-200">Configuración NexoPC · {groupItems.length} piezas</div> : null}
+        {group !== "individual" ? (
+          <div className="flex items-center justify-between border-b border-white/8 bg-orange-400/5 px-5 py-3 text-sm font-bold text-orange-200">
+            <div className="flex items-center gap-2">
+              <PackageOpen size={16} className="text-orange-400 shrink-0" />
+              <span>{groupItems[0]?.buildName ?? "Configuración NexoPC"} · {groupItems.length} piezas</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const name = groupItems[0]?.buildName ?? "esta configuración";
+                if (window.confirm(`¿Quitar todas las ${groupItems.length} piezas de ${name} del carrito?`)) {
+                  removeBuild(group);
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20 hover:text-rose-200 focus-ring"
+              title="Quitar todas las piezas de este grupo"
+              aria-label={`Quitar grupo ${groupItems[0]?.buildName ?? "Configuración"}`}
+            >
+              <Trash2 size={13} />
+              <span>Quitar grupo</span>
+            </button>
+          </div>
+        ) : null}
         <div>{groupItems.map((item) => <article className="cart-line" key={item.id}>
           {item.image ? <div className="cart-line-media"><Image src={item.image} alt={item.name} fill className="object-contain p-2" sizes="80px"/></div> : <div className="cart-line-media cart-line-placeholder">NexoPC</div>}
           <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{item.category ?? "Componente"}</p><h2 className="mt-1 font-bold text-slate-100">{item.name}</h2><p className={`mt-2 text-lg font-extrabold ${item.price > 0 ? "text-orange-200" : "text-amber-200"}`}>{formatPrice(String(item.price))}</p>

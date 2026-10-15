@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { AlertCircle, Banknote, CheckCircle2, CreditCard, LoaderCircle, ShieldCheck, Truck } from "lucide-react";
@@ -63,7 +64,40 @@ export default function Checkout() {
         <section className="panel checkout-section"><div className="checkout-section-head"><span>02</span><div><h2>Entrega</h2><p>Dirección donde deseas recibir el pedido.</p></div></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2">{field("address1", "Dirección")}</div>{field("city", "Ciudad")}{field("region", "Región")}{field("postcode", "Código postal o distrito")}</div><label className="checkout-field mt-4" htmlFor="notes"><span>Nota para el pedido <i>Opcional</i></span><textarea id="notes" name="notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={3} className="field resize-y" placeholder="Referencia, horario preferido u otra indicación."/></label></section>
         <section className="panel checkout-section"><div className="checkout-section-head"><span>03</span><div><h2>Forma de pago</h2><p>Elige cómo prefieres continuar.</p></div></div><div className="mt-5 grid gap-3">{methods.map(({ value, Icon, title, text }) => { const active = method === value; return <button type="button" key={value} onClick={() => setMethod(value)} aria-pressed={active} className={`payment-method focus-ring ${active ? "payment-method-active" : ""}`}><Icon size={20}/><span><strong>{title}</strong><small>{text}</small></span>{active ? <CheckCircle2 className="ml-auto text-orange-300" size={18}/> : null}</button>; })}</div></section>
       </div>
-      <aside className="panel order-summary"><p className="eyebrow">Resumen del pedido</p><div className="mt-5 max-h-72 space-y-3 overflow-auto pr-1">{items.map((item) => <div className="order-summary-line" key={item.id}><span>{item.quantity}× {item.name}</span><strong>{formatPrice(String(item.price * item.quantity))}</strong></div>)}</div><div className="mt-5 flex justify-between gap-4 border-t border-white/8 pt-4"><span className="font-bold">Total estimado</span><span className="price text-2xl">{formatPrice(String(getTotal()))}</span></div>{message ? <div className="commerce-warning" role="alert"><AlertCircle size={17}/>{message}</div> : null}<button disabled={loading || hasPendingPrices} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-55">{loading ? <><LoaderCircle className="animate-spin" size={18}/>Registrando pedido…</> : method === "culqi" ? <><CreditCard size={18}/>Consultar disponibilidad</> : <><CheckCircle2 size={18}/>Registrar pedido</>}</button><p className="mt-3 text-center text-xs leading-5 text-slate-500">Revisaremos disponibilidad y datos antes de confirmar la atención.</p></aside>
+      <aside className="panel order-summary"><p className="eyebrow">Resumen del pedido</p><div className="mt-5 max-h-80 space-y-2.5 overflow-auto pr-1">
+          {items.map((item) => (
+            <div className="order-summary-line flex items-center gap-3 py-1" key={item.id}>
+              <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-slate-800/80">
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    className="object-contain p-1"
+                    sizes="44px"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-slate-500">
+                    PC
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-xs font-medium text-slate-200" title={item.name}>
+                  <span className="font-bold text-orange-400">{item.quantity}×</span> {item.name}
+                </p>
+                {item.category ? (
+                  <span className="block text-[10px] uppercase tracking-wider text-slate-500">
+                    {item.category}
+                  </span>
+                ) : null}
+              </div>
+              <strong className="shrink-0 text-xs font-bold text-slate-100">
+                {formatPrice(String(item.price * item.quantity))}
+              </strong>
+            </div>
+          ))}
+        </div><div className="mt-5 flex justify-between gap-4 border-t border-white/8 pt-4"><span className="font-bold">Total estimado</span><span className="price text-2xl">{formatPrice(String(getTotal()))}</span></div>{message ? <div className="commerce-warning" role="alert"><AlertCircle size={17}/>{message}</div> : null}<button disabled={loading || hasPendingPrices} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-55">{loading ? <><LoaderCircle className="animate-spin" size={18}/>Registrando pedido…</> : method === "culqi" ? <><CreditCard size={18}/>Consultar disponibilidad</> : <><CheckCircle2 size={18}/>Registrar pedido</>}</button><p className="mt-3 text-center text-xs leading-5 text-slate-500">Revisaremos disponibilidad y datos antes de confirmar la atención.</p></aside>
     </form>
   </main>;
 }
