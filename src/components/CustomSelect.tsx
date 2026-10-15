@@ -25,9 +25,20 @@ export default function CustomSelect({
   className = "",
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value) || options[0];
+
+  const handleToggle = () => {
+    if (!open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // If there's less than 220px below and enough space above, open upwards
+      setOpenUpward(spaceBelow < 220 && rect.top > 180);
+    }
+    setOpen((prev) => !prev);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,20 +61,20 @@ export default function CustomSelect({
   }, [open]);
 
   return (
-    <div ref={containerRef} className={`custom-select-container relative ${className}`}>
+    <div ref={containerRef} className={`custom-select-container relative flex items-center ${className}`}>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleToggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel || selectedOption?.label}
-        className="custom-select-trigger focus-ring flex w-full items-center justify-between gap-3"
+        className="custom-select-trigger focus-ring flex w-full h-12 items-center justify-between gap-3 px-3.5 rounded-xl border border-slate-700/60 bg-[#060a14]/90 text-sm font-semibold text-slate-200 transition-all hover:border-cyan-400/40"
       >
-        <span className="truncate font-semibold text-slate-200">
+        <span className="truncate font-semibold text-slate-200 leading-none">
           {selectedOption ? selectedOption.label : "Selecciona una opción"}
         </span>
         <ChevronDown
-          size={15}
+          size={16}
           className={`shrink-0 text-slate-400 transition-transform duration-200 ${
             open ? "rotate-180 text-cyan-300" : ""
           }`}
@@ -73,12 +84,14 @@ export default function CustomSelect({
       <AnimatePresence>
         {open && (
           <m.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            initial={{ opacity: 0, y: openUpward ? 4 : -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            exit={{ opacity: 0, y: openUpward ? 4 : -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             role="listbox"
-            className="custom-select-dropdown absolute left-0 right-0 top-full z-[100] mt-1.5 min-w-[11rem] overflow-hidden rounded-xl border border-cyan-400/20 bg-[#070b16]/95 p-1.5 shadow-2xl backdrop-blur-xl"
+            className={`custom-select-dropdown absolute left-0 right-0 z-[120] min-w-[12rem] overflow-hidden rounded-xl border border-cyan-400/30 bg-[#070b16] p-1.5 shadow-2xl backdrop-blur-2xl ${
+              openUpward ? "bottom-full mb-2" : "top-full mt-2"
+            }`}
           >
             <div className="max-h-60 space-y-1 overflow-y-auto pr-1">
               {options.map((option) => {
