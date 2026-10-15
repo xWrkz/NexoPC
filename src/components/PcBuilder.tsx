@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { AlertTriangle, Check, CheckCircle2, ChevronRight, CircleHelp, Cpu, Gauge, HardDrive, Info, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Product } from "@/types/product";
 import { BuilderCategory, ComponentePC, ComponentSpecs } from "@/lib/compatibility/rules";
 import { useBuilderStore } from "@/store/builderStore";
@@ -75,24 +75,140 @@ function productCategory(product: Product): BuilderCategory | undefined {
   return undefined;
 }
 
-function extractHardwareFromDescription(html?: string, category?: BuilderCategory): ComponentSpecs {
-  if (!html) return {};
-  const tdpMatch = html.match(/(?:TDP|Consumo):\s*<\/strong>\s*(\d+)\s*W/i);
-  const psuWattsMatch = html.match(/(?:Potencia|Vatios|Capacidad):\s*<\/strong>\s*(\d+)\s*W/i);
-  const recPsuMatch = html.match(/(?:Fuente Recomendada|Recomendada):\s*<\/strong>\s*(\d+)\s*W/i);
-  const lengthMatch = html.match(/(?:Longitud|Largo):\s*<\/strong>\s*(\d+)\s*mm/i);
+const socketMap: Record<string, number> = {
+  "am5": 1,
+  "am4": 2,
+  "lga 1700": 3,
+  "lga1700": 3,
+  "1700": 3,
+  "lga 1200": 4,
+  "lga1200": 4,
+  "1200": 4,
+  "lga 1151": 5,
+  "lga1151": 5,
+  "1151": 5,
+};
 
-  return {
-    tdpWatts: (category === "cpu" || category === "gpu") && tdpMatch ? parseInt(tdpMatch[1], 10) : undefined,
-    continuousWatts: category === "psu" && psuWattsMatch ? parseInt(psuWattsMatch[1], 10) : undefined,
-    recommendedPsuWatts: category === "gpu" && recPsuMatch ? parseInt(recPsuMatch[1], 10) : undefined,
-    gpuLengthMm: category === "gpu" && lengthMatch ? parseInt(lengthMatch[1], 10) : undefined,
-  };
+const memoryTypeMap: Record<string, number> = {
+  "ddr5": 1,
+  "ddr4": 2,
+};
+
+const formFactorMap: Record<string, number> = {
+  "mini-itx": 3,
+  "mini itx": 3,
+  "mitx": 3,
+  "micro-atx": 2,
+  "micro atx": 2,
+  "matx": 2,
+  "atx": 1,
+};
+
+function extractHardwareFromDescription(name: string, html?: string, category?: BuilderCategory): ComponentSpecs {
+  const text = (name + " " + (html || "")).toLowerCase();
+
+  let socketId: number | undefined;
+  for (const [k, v] of Object.entries(socketMap)) {
+    if (text.includes(k)) {
+      socketId = v;
+      break;
+    }
+  }
+
+  let memoryTypeId: number | undefined;
+  for (const [k, v] of Object.entries(memoryTypeMap)) {
+    if (text.includes(k)) {
+      memoryTypeId = v;
+      break;
+    }
+  }
+
+  let formFactorId: number | undefined;
+  for (const [k, v] of Object.entries(formFactorMap)) {
+    if (text.includes(k)) {
+      formFactorId = v;
+      break;
+    }
+  }
+
+  const tdpMatch = text.match(/(?:tdp|consumo)[\s:]*(\d+)\s*w/i);
+  const psuWattsMatch = text.match(/(\d{3,4})\s*w(?:atts)?/i);
+  const recPsuMatch = text.match(/(?:fuente recomendada|recomendada)[\s:]*(\d+)\s*w/i);
+  const lengthMatch = text.match(/(\d{3})\s*mm/i);
+
+  if (category === "cpu") {
+    const sId = socketId || (text.includes("am5") || text.includes("ryzen 7000") || text.includes("ryzen 8000") || text.includes("ryzen 9000") ? 1 : text.includes("am4") || text.includes("ryzen 3000") || text.includes("ryzen 5000") ? 2 : 3);
+    const mId = memoryTypeId || (sId === 1 ? 1 : sId === 2 ? 2 : 1);
+    return {
+      socketId: sId,
+      memoryTypeId: mId,
+      tdpWatts: tdpMatch ? parseInt(tdpMatch[1], 10) : 65,
+    };
+  }
+
+  if (category === "motherboard") {
+    const sId = socketId || (text.includes("am5") || text.includes("b650") || text.includes("x670") || text.includes("a620") || text.includes("x870") ? 1 : text.includes("am4") || text.includes("b550") || text.includes("b450") || text.includes("a520") || text.includes("x570") ? 2 : 3);
+    const supportedMem = memoryTypeId ? [memoryTypeId] : (sId === 1 ? [1] : sId === 2 ? [2] : [1, 2]);
+    return {
+      socketId: sId,
+      formFactorId: formFactorId || 1,
+      supportedMemoryTypeIds: supportedMem,
+      supportedStorageInterfaceIds: [1, 2],
+      supportedFormFactorIds: [1, 2, 3],
+    };
+  }
+
+  if (category === "ram") {
+    return {
+      memoryTypeId: memoryTypeId || (text.includes("ddr5") ? 1 : 2),
+    };
+  }
+
+  if (category === "gpu") {
+    return {
+      tdpWatts: tdpMatch ? parseInt(tdpMatch[1], 10) : 220,
+      gpuLengthMm: lengthMatch ? parseInt(lengthMatch[1], 10) : 285,
+      recommendedPsuWatts: recPsuMatch ? parseInt(recPsuMatch[1], 10) : (tdpMatch ? parseInt(tdpMatch[1], 10) + 300 : 650),
+    };
+  }
+
+  if (category === "storage") {
+    const isNvme = text.includes("nvme") || text.includes("m.2") || text.includes("pcie");
+    return {
+      storageInterfaceId: isNvme ? 1 : 2,
+      storageInterfaceSlug: isNvme ? "m2_nvme" : "sata_2_5",
+    };
+  }
+
+  if (category === "psu") {
+    return {
+      continuousWatts: psuWattsMatch ? parseInt(psuWattsMatch[1], 10) : 750,
+    };
+  }
+
+  if (category === "case") {
+    const isMini = formFactorId === 3;
+    const isMicro = formFactorId === 2;
+    return {
+      supportedFormFactorIds: isMini ? [3] : isMicro ? [2, 3] : [1, 2, 3],
+      maxGpuLengthMm: lengthMatch ? parseInt(lengthMatch[1], 10) : 360,
+      bays25: 2,
+      bays35: 2,
+    };
+  }
+
+  if (category === "cooler") {
+    return {
+      tdpWatts: 150,
+    };
+  }
+
+  return {};
 }
 
 function toComponent(product: Product, category: BuilderCategory): ComponentePC {
   const specs = product.nexopcHardware;
-  const descSpecs = extractHardwareFromDescription(product.description, category);
+  const descSpecs = extractHardwareFromDescription(product.name, product.description, category);
   return {
     id: product.id,
     productId: product.databaseId,
@@ -101,23 +217,23 @@ function toComponent(product: Product, category: BuilderCategory): ComponentePC 
     precio: getPriceValue(product.price),
     image: product.image?.sourceUrl,
     specs: {
-      socketId: specs?.socketId ?? undefined,
-      memoryTypeId: specs?.memoryTypeId ?? undefined,
-      formFactorId: specs?.formFactorId ?? undefined,
-      storageInterfaceId: specs?.storageInterfaceId ?? undefined,
-      storageInterfaceSlug: specs?.storageInterfaceSlug ?? undefined,
-      supportedMemoryTypeIds: specs?.supportedMemoryTypeIds,
-      supportedStorageInterfaceIds: specs?.supportedStorageInterfaceIds,
-      supportedFormFactorIds: specs?.supportedFormFactorIds,
+      socketId: specs?.socketId ?? descSpecs.socketId,
+      memoryTypeId: specs?.memoryTypeId ?? descSpecs.memoryTypeId,
+      formFactorId: specs?.formFactorId ?? descSpecs.formFactorId,
+      storageInterfaceId: specs?.storageInterfaceId ?? descSpecs.storageInterfaceId,
+      storageInterfaceSlug: specs?.storageInterfaceSlug ?? descSpecs.storageInterfaceSlug,
+      supportedMemoryTypeIds: specs?.supportedMemoryTypeIds ?? descSpecs.supportedMemoryTypeIds,
+      supportedStorageInterfaceIds: specs?.supportedStorageInterfaceIds ?? descSpecs.supportedStorageInterfaceIds,
+      supportedFormFactorIds: specs?.supportedFormFactorIds ?? descSpecs.supportedFormFactorIds,
       tdpWatts: specs?.tdpWatts ?? descSpecs.tdpWatts,
       gpuLengthMm: specs?.gpuLengthMm ?? descSpecs.gpuLengthMm,
       recommendedPsuWatts: specs?.recommendedPsuWatts ?? descSpecs.recommendedPsuWatts,
-      maxGpuLengthMm: specs?.maxGpuLengthMm ?? undefined,
+      maxGpuLengthMm: specs?.maxGpuLengthMm ?? descSpecs.maxGpuLengthMm,
       continuousWatts: specs?.continuousWatts ?? descSpecs.continuousWatts,
       m2Slots: specs?.m2Slots ?? undefined,
       sataPorts: specs?.sataPorts ?? undefined,
-      bays25: specs?.bays25 ?? undefined,
-      bays35: specs?.bays35 ?? undefined,
+      bays25: specs?.bays25 ?? descSpecs.bays25,
+      bays35: specs?.bays35 ?? descSpecs.bays35,
     }
   };
 }
@@ -132,6 +248,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const [budget, setBudget] = useState<number | undefined>();
   const [activeCategory, setActiveCategory] = useState<BuilderCategory | null>(null);
   const [search, setSearch] = useState("");
+  const [onlyCompatible, setOnlyCompatible] = useState(true);
   const { seleccion, result, setComponente, getTotal, reset } = useBuilderStore();
   const addItem = useCartStore((state) => state.addItem);
   const selected = Object.values(seleccion).filter(Boolean) as ComponentePC[];
@@ -139,7 +256,27 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const total = getTotal();
   const optionsByCategory = useMemo(() => Object.fromEntries(steps.map((step) => [step.key, products.filter((product) => productCategory(product) === step.key)])) as Record<BuilderCategory, Product[]>, [products]);
   const activeStep = steps.find((step) => step.key === activeCategory);
-  const options = activeCategory ? optionsByCategory[activeCategory].filter((product) => `${product.name} ${product.sku ?? ""}`.toLowerCase().includes(search.toLowerCase())) : [];
+  const options = useMemo(() => {
+    if (!activeCategory) return [];
+    const query = search.toLowerCase();
+    return optionsByCategory[activeCategory].filter((product) =>
+      `${product.name} ${product.sku ?? ""}`.toLowerCase().includes(query)
+    );
+  }, [activeCategory, optionsByCategory, search]);
+
+  const checkCompatibility = useCallback((product: Product) => {
+    if (!activeCategory) return { isCompatible: true, error: null };
+    const candidate = toComponent(product, activeCategory);
+    const hypothetical = { ...seleccion, [activeCategory]: candidate };
+    const res = validarCompatibilidad(hypothetical);
+    return { isCompatible: res.errors.length === 0, error: res.errors[0] ?? null };
+  }, [activeCategory, seleccion]);
+
+  const displayedOptions = useMemo(() => {
+    if (!activeCategory) return [];
+    if (!onlyCompatible) return options;
+    return options.filter((product) => checkCompatibility(product).isCompatible);
+  }, [options, activeCategory, onlyCompatible, checkCompatibility]);
   const unclassified = products.filter((product) => !productCategory(product)).length;
   const pendingPrices = selected.filter((item) => item.precio <= 0).length;
 
@@ -171,6 +308,15 @@ export default function PcBuilder({ products }: { products: Product[] }) {
 
     </div>
 
-    <AnimatePresence>{activeStep ? <m.div className="fixed inset-0 z-[90]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActiveCategory(null)} aria-label="Cerrar selector"/><m.aside initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 260 }} className="component-drawer"><div className="component-drawer-head"><div><p className="eyebrow">Paso {steps.findIndex((step) => step.key === activeStep.key) + 1}</p><h2 className="font-display mt-1 text-3xl font-bold">Elige {activeStep.label.toLowerCase()}</h2><p className="mt-2 text-sm text-slate-400">{activeStep.help}</p></div><button type="button" onClick={() => setActiveCategory(null)} className="focus-ring rounded-xl border border-white/10 p-2"><X/></button></div><div className="relative mt-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-300/60" size={16}/><input className="field pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${activeStep.label.toLowerCase()}…`}/></div><div className="mt-5 grid gap-3 pb-10">{options.length ? options.map((product) => { const selectedProduct = seleccion[activeStep.key]?.id === product.id; const priced = hasValidPrice(product.price); return <button type="button" key={product.id} onClick={() => choose(product)} disabled={!priced} className={`component-choice focus-ring ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""}`}><div className="component-choice-media">{product.image ? <Image src={product.image.sourceUrl} alt="" fill className="object-contain p-2"/> : <ProductPlaceholder name={product.name} compact/>}</div><div className="min-w-0 flex-1 text-left"><span className="text-xs font-bold text-slate-500">{product.sku ? `SKU ${product.sku}` : activeStep.label}</span><h3 className="mt-1 truncate font-bold">{product.name}</h3><p className={`mt-2 text-lg font-black ${priced ? "text-orange-300" : "text-amber-200"}`}>{formatPrice(product.price)}</p>{!priced ? <small className="mt-1 block text-xs text-slate-500">Disponible para consulta en su ficha.</small> : null}</div><span className={`component-choice-action ${selectedProduct ? "bg-emerald-400 text-slate-950" : ""}`}>{selectedProduct ? <Check size={17}/> : priced ? <Plus size={17}/> : <CircleHelp size={17}/>}</span></button>; }) : <div className="catalog-state"><PackageOpen className="text-slate-500"/><h2>No hay opciones disponibles</h2><p>Prueba otra búsqueda o vuelve más tarde.</p></div>}</div></m.aside></m.div> : null}</AnimatePresence>
+    <AnimatePresence>{activeStep ? <m.div className="fixed inset-0 z-[90]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActiveCategory(null)} aria-label="Cerrar selector"/><m.aside initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 260 }} className="component-drawer"><div className="component-drawer-head"><div><p className="eyebrow">Paso {steps.findIndex((step) => step.key === activeStep.key) + 1}</p><h2 className="font-display mt-1 text-3xl font-bold">Elige {activeStep.label.toLowerCase()}</h2><p className="mt-2 text-sm text-slate-400">{activeStep.help}</p></div><button type="button" onClick={() => setActiveCategory(null)} className="focus-ring rounded-xl border border-white/10 p-2"><X/></button></div><div className="relative mt-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-300/60" size={16}/><input className="field pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${activeStep.label.toLowerCase()}…`}/></div><div className="mt-3 flex items-center justify-between text-xs text-slate-400"><label className="flex cursor-pointer items-center gap-2 select-none"><input type="checkbox" checked={onlyCompatible} onChange={(e) => setOnlyCompatible(e.target.checked)} className="rounded border-white/20 bg-slate-800 text-orange-500"/><span className="font-medium text-slate-300">Solo componentes compatibles ({displayedOptions.length} de {options.length})</span></label></div><div className="mt-4 grid gap-3 pb-10">{displayedOptions.length ? displayedOptions.map((product) => { const compat = checkCompatibility(product); const selectedProduct = seleccion[activeStep.key]?.id === product.id; const priced = hasValidPrice(product.price); return <button type="button" key={product.id} onClick={() => choose(product)} disabled={!priced} className={`component-choice focus-ring ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""}`}><div className="component-choice-media">{product.image ? <Image src={product.image.sourceUrl} alt="" fill className="object-contain p-2"/> : <ProductPlaceholder name={product.name} compact/>}</div><div className="min-w-0 flex-1 text-left"><span className="text-xs font-bold text-slate-500">{product.sku ? `SKU ${product.sku}` : activeStep.label}</span><h3 className="mt-1 truncate font-bold">{product.name}</h3>
+{compat.isCompatible ? (
+  <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+    <Check size={12}/> Compatible
+  </span>
+) : (
+  <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400">
+    <AlertTriangle size={12}/> Incompatible: {compat.error}
+  </span>
+)}<p className={`mt-2 text-lg font-black ${priced ? "text-orange-300" : "text-amber-200"}`}>{formatPrice(product.price)}</p>{!priced ? <small className="mt-1 block text-xs text-slate-500">Disponible para consulta en su ficha.</small> : null}</div><span className={`component-choice-action ${selectedProduct ? "bg-emerald-400 text-slate-950" : ""}`}>{selectedProduct ? <Check size={17}/> : priced ? <Plus size={17}/> : <CircleHelp size={17}/>}</span></button>; }) : <div className="catalog-state"><PackageOpen className="text-slate-500"/><h2>No hay opciones disponibles</h2><p>Prueba otra búsqueda o vuelve más tarde.</p></div>}</div></m.aside></m.div> : null}</AnimatePresence>
   </div>;
 }
