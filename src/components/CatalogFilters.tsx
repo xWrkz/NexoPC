@@ -27,6 +27,7 @@ export default function CatalogFilters({ categories, tags, usages, placement = "
   const firstSearchRender = useRef(true);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMinPrice(current.get("precioMin") ?? "");
     setMaxPrice(current.get("precioMax") ?? "");
   }, [current]);
