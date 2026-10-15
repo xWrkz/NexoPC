@@ -3,10 +3,10 @@
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, CircleHelp, Cpu, Gauge, HardDrive, Info, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Cpu, Gauge, HardDrive, Info, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Product } from "@/types/product";
-import { BuilderCategory, ComponentePC, ComponentSpecs } from "@/lib/compatibility/rules";
+import { BuilderCategory, ComponentePC, ComponentSpecs, validarCompatibilidad } from "@/lib/compatibility/rules";
 import { useBuilderStore } from "@/store/builderStore";
 import { useCartStore } from "@/store/cartStore";
 import { getPriceValue, hasValidPrice } from "@/lib/utils/price";
@@ -250,6 +250,16 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const [search, setSearch] = useState("");
   const [onlyCompatible, setOnlyCompatible] = useState(true);
   const { seleccion, result, setComponente, getTotal, reset } = useBuilderStore();
+
+  useEffect(() => {
+    if (activeCategory) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [activeCategory]);
   const addItem = useCartStore((state) => state.addItem);
   const selected = Object.values(seleccion).filter(Boolean) as ComponentePC[];
   const progress = Math.round((selected.length / steps.length) * 100);
@@ -297,7 +307,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
 
   return <div className="builder-shell"><div className="builder-modebar"><div><p className="eyebrow">Elige cómo avanzar</p><h2 className="mt-1 text-xl font-bold">Tú decides cuánto acompañamiento necesitas</h2></div><div className="builder-mode-switch" role="group" aria-label="Modo del armador"><button type="button" onClick={() => setMode("guided")} aria-pressed={mode === "guided"} className={mode === "guided" ? "active" : ""}><Sparkles size={16}/>Guíame paso a paso</button><button type="button" onClick={() => setMode("advanced")} aria-pressed={mode === "advanced"} className={mode === "advanced" ? "active" : ""}><Cpu size={16}/>Sé qué componentes quiero</button></div></div>
 
-    <AnimatePresence initial={false}>{mode === "guided" ? <m.section initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="builder-guide"><div><p className="filter-title">1. ¿Cuál es tu objetivo principal?</p><div className="mt-3 flex flex-wrap gap-2">{goals.map((item) => <button type="button" key={item.id} onClick={() => setGoal(item.id)} className={`filter-chip ${goal === item.id ? "filter-chip-active" : ""}`}>{item.label}</button>)}</div></div><label className="builder-budget"><span>2. Presupuesto aproximado</span><div><span>S/</span><input type="number" min="0" step="100" value={budget ?? ""} onChange={(event) => setBudget(event.target.value ? Number(event.target.value) : undefined)} placeholder="Ej. 3000"/></div><small>Lo usaremos como referencia; no ocultaremos piezas por precio.</small></label></m.section> : null}</AnimatePresence>
+    <AnimatePresence initial={false}>{mode === "guided" ? <m.section initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="builder-guide"><div><p className="filter-title">1. ¿Cuál es tu objetivo principal?</p><div className="mt-3 flex flex-wrap gap-2">{goals.map((item) => <button type="button" key={item.id} onClick={() => setGoal(item.id)} className={`filter-chip ${goal === item.id ? "filter-chip-active" : ""}`}>{item.label}</button>)}</div></div><label className="builder-budget"><span>2. Presupuesto aproximado</span><div className="builder-budget-wrap"><span>S/</span><input type="number" min="0" step="100" value={budget ?? ""} onChange={(event) => setBudget(event.target.value ? Number(event.target.value) : undefined)} placeholder="Ej. 3000"/><div className="price-stepper-actions"><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) + 100))} className="stepper-arrow-btn" aria-label="Aumentar presupuesto en 100"><ChevronUp size={12}/></button><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) - 100))} className="stepper-arrow-btn" aria-label="Disminuir presupuesto en 100"><ChevronDown size={12}/></button></div></div><small>Lo usaremos como referencia; no ocultaremos piezas por precio.</small></label></m.section> : null}</AnimatePresence>
 
     <div className="builder-workspace"><aside className="builder-steps"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black uppercase tracking-[.16em] text-slate-500">Componentes</span><strong className="text-sm text-cyan-200">{selected.length}/{steps.length}</strong></div>{steps.map((step, index) => { const current = seleccion[step.key]; const available = optionsByCategory[step.key].length; const Icon = step.icon; return <button type="button" key={step.key} onClick={() => setActiveCategory(step.key)} className={`builder-step focus-ring ${current ? "builder-step-complete" : ""} ${activeCategory === step.key ? "builder-step-active" : ""}`}><span className="builder-step-number">{current ? <Check size={14}/> : index + 1}</span><Icon size={17}/><span className="min-w-0 flex-1 text-left"><strong>{step.label}</strong><small>{current ? current.nombre : available ? `${available} ${available === 1 ? "opción" : "opciones"}` : "Sin ficha técnica"}</small></span><ChevronRight size={15}/></button>; })}{unclassified ? <p className="mt-4 flex gap-2 rounded-xl border border-amber-300/12 bg-amber-300/5 p-3 text-[11px] leading-5 text-amber-100/70"><Info size={14} className="mt-0.5 shrink-0"/>{unclassified} {unclassified === 1 ? "producto aún no tiene" : "productos aún no tienen"} tipo de componente y ficha técnica; no aparecerán en el armador hasta completarlos.</p> : null}</aside>
 
@@ -308,15 +318,119 @@ export default function PcBuilder({ products }: { products: Product[] }) {
 
     </div>
 
-    <AnimatePresence>{activeStep ? <m.div className="fixed inset-0 z-[90]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActiveCategory(null)} aria-label="Cerrar selector"/><m.aside initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 260 }} className="component-drawer"><div className="component-drawer-head"><div><p className="eyebrow">Paso {steps.findIndex((step) => step.key === activeStep.key) + 1}</p><h2 className="font-display mt-1 text-3xl font-bold">Elige {activeStep.label.toLowerCase()}</h2><p className="mt-2 text-sm text-slate-400">{activeStep.help}</p></div><button type="button" onClick={() => setActiveCategory(null)} className="focus-ring rounded-xl border border-white/10 p-2"><X/></button></div><div className="relative mt-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-300/60" size={16}/><input className="field pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${activeStep.label.toLowerCase()}…`}/></div><div className="mt-3 flex items-center justify-between text-xs text-slate-400"><label className="flex cursor-pointer items-center gap-2 select-none"><input type="checkbox" checked={onlyCompatible} onChange={(e) => setOnlyCompatible(e.target.checked)} className="rounded border-white/20 bg-slate-800 text-orange-500"/><span className="font-medium text-slate-300">Solo componentes compatibles ({displayedOptions.length} de {options.length})</span></label></div><div className="mt-4 grid gap-3 pb-10">{displayedOptions.length ? displayedOptions.map((product) => { const compat = checkCompatibility(product); const selectedProduct = seleccion[activeStep.key]?.id === product.id; const priced = hasValidPrice(product.price); return <button type="button" key={product.id} onClick={() => choose(product)} disabled={!priced} className={`component-choice focus-ring ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""}`}><div className="component-choice-media">{product.image ? <Image src={product.image.sourceUrl} alt="" fill className="object-contain p-2"/> : <ProductPlaceholder name={product.name} compact/>}</div><div className="min-w-0 flex-1 text-left"><span className="text-xs font-bold text-slate-500">{product.sku ? `SKU ${product.sku}` : activeStep.label}</span><h3 className="mt-1 truncate font-bold">{product.name}</h3>
-{compat.isCompatible ? (
-  <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-    <Check size={12}/> Compatible
-  </span>
-) : (
-  <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400">
-    <AlertTriangle size={12}/> Incompatible: {compat.error}
-  </span>
-)}<p className={`mt-2 text-lg font-black ${priced ? "text-orange-300" : "text-amber-200"}`}>{formatPrice(product.price)}</p>{!priced ? <small className="mt-1 block text-xs text-slate-500">Disponible para consulta en su ficha.</small> : null}</div><span className={`component-choice-action ${selectedProduct ? "bg-emerald-400 text-slate-950" : ""}`}>{selectedProduct ? <Check size={17}/> : priced ? <Plus size={17}/> : <CircleHelp size={17}/>}</span></button>; }) : <div className="catalog-state"><PackageOpen className="text-slate-500"/><h2>No hay opciones disponibles</h2><p>Prueba otra búsqueda o vuelve más tarde.</p></div>}</div></m.aside></m.div> : null}</AnimatePresence>
+    <AnimatePresence>
+      {activeStep ? (
+        <m.div className="fixed inset-0 z-[90]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActiveCategory(null)} aria-label="Cerrar selector" />
+          <m.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 260 }}
+            className="component-drawer flex flex-col"
+          >
+            <div className="component-drawer-head shrink-0">
+              <div>
+                <p className="eyebrow">Paso {steps.findIndex((step) => step.key === activeStep.key) + 1}</p>
+                <h2 className="font-display mt-1 text-2xl sm:text-3xl font-bold">Elige {activeStep.label.toLowerCase()}</h2>
+                <p className="mt-2 text-sm text-slate-400">{activeStep.help}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveCategory(null)}
+                className="focus-ring shrink-0 rounded-xl border border-white/10 p-2 text-slate-300 hover:text-white hover:bg-white/5"
+                aria-label="Cerrar panel"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="relative mt-6 shrink-0">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-300/60" size={16} />
+              <input
+                className="field field-search !pl-10 w-full"
+                style={{ paddingLeft: "2.6rem" }}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={`Buscar ${activeStep.label.toLowerCase()}…`}
+              />
+            </div>
+
+            <div className="mt-3 flex shrink-0 items-center justify-between text-xs text-slate-400">
+              <label className="flex cursor-pointer items-center gap-2 select-none">
+                <input
+                  type="checkbox"
+                  checked={onlyCompatible}
+                  onChange={(e) => setOnlyCompatible(e.target.checked)}
+                  className="rounded border-white/20 bg-slate-800 text-orange-500"
+                />
+                <span className="font-medium text-slate-300">Solo componentes compatibles ({displayedOptions.length} de {options.length})</span>
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 pb-10 w-full min-w-0">
+              {displayedOptions.length ? (
+                displayedOptions.map((product) => {
+                  const compat = checkCompatibility(product);
+                  const selectedProduct = seleccion[activeStep.key]?.id === product.id;
+                  const priced = hasValidPrice(product.price);
+                  return (
+                    <button
+                      type="button"
+                      key={product.id}
+                      onClick={() => choose(product)}
+                      disabled={!priced}
+                      className={`component-choice focus-ring w-full min-w-0 text-left ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""}`}
+                    >
+                      <div className="component-choice-media shrink-0">
+                        {product.image ? (
+                          <Image src={product.image.sourceUrl} alt="" fill className="object-contain p-2" sizes="(max-width: 520px) 70px, 88px" />
+                        ) : (
+                          <ProductPlaceholder name={product.name} compact />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-xs font-bold text-slate-500">
+                          {product.sku ? `SKU ${product.sku}` : activeStep.label}
+                        </span>
+                        <h3 className="mt-1 line-clamp-2 text-sm sm:text-base font-bold leading-snug text-slate-100">
+                          {product.name}
+                        </h3>
+                        {compat.isCompatible ? (
+                          <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                            <Check size={12} className="shrink-0" />
+                            <span>Compatible</span>
+                          </span>
+                        ) : (
+                          <span className="mt-1 flex items-start gap-1 text-[11px] font-semibold text-rose-400">
+                            <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                            <span className="line-clamp-2 leading-tight">Incompatible: {compat.error}</span>
+                          </span>
+                        )}
+                        <p className={`mt-2 text-base sm:text-lg font-black ${priced ? "text-orange-300" : "text-amber-200"}`}>
+                          {formatPrice(product.price)}
+                        </p>
+                        {!priced ? (
+                          <small className="mt-1 block text-xs text-slate-500">Disponible para consulta en su ficha.</small>
+                        ) : null}
+                      </div>
+                      <span className={`component-choice-action shrink-0 ${selectedProduct ? "bg-emerald-400 text-slate-950" : ""}`}>
+                        {selectedProduct ? <Check size={17} /> : priced ? <Plus size={17} /> : <CircleHelp size={17} />}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="catalog-state">
+                  <PackageOpen className="text-slate-500" />
+                  <h2>No hay opciones disponibles</h2>
+                  <p>Prueba otra búsqueda o vuelve más tarde.</p>
+                </div>
+              )}
+            </div>
+          </m.aside>
+        </m.div>
+      ) : null}
+    </AnimatePresence>
   </div>;
 }
