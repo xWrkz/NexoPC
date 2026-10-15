@@ -218,9 +218,13 @@ input[type="number"] {
 .builder-mode-switch button.active { color: #111827; background: linear-gradient(135deg,#ffb13a,#ff6500); box-shadow: 0 8px 22px rgba(255,100,0,.18); }
 .builder-guide { display: grid; grid-template-columns: 1.25fr .75fr; gap: 1.5rem; overflow: hidden; margin-top: 1rem; border: 1px solid rgba(61,220,255,.13); border-radius: 1.2rem; padding: 1.2rem; background: linear-gradient(120deg,rgba(61,220,255,.045),rgba(155,123,255,.035)); }
 .builder-budget { display: grid; align-content: start; gap: .45rem; color: #7f8ca1; font-size: .65rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
-.builder-budget div, .builder-budget-wrap { display: flex; align-items: center; border: 1px solid rgba(148,163,184,.2); border-radius: .75rem; padding-left: .8rem; color: #ffb668; background: rgba(2,6,15,.68); transition: border-color .2s, box-shadow .2s; }
+.builder-budget-wrap { position: relative; display: flex; align-items: center; border: 1px solid rgba(148,163,184,.2); border-radius: .75rem; padding-left: .8rem; color: #ffb668; background: rgba(2,6,15,.68); transition: border-color .2s, box-shadow .2s; }
 .builder-budget-wrap:focus-within { border-color: var(--electric); box-shadow: 0 0 0 3px rgba(61,220,255,.1); }
-.builder-budget input { width: 100%; min-width: 0; padding: .72rem .5rem; outline: none; color: white; background: transparent; font-size: .85rem; font-weight: 750; border: none; }
+.builder-budget-wrap input { width: 100%; min-width: 0; padding: .72rem .5rem; outline: none !important; color: white; background: transparent !important; font-size: .85rem; font-weight: 750; border: none !important; box-shadow: none !important; }
+.builder-budget-wrap input::-webkit-outer-spin-button,
+.builder-budget-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.builder-budget-wrap input[type=number] { -moz-appearance: textfield; }
+.builder-budget-wrap .price-stepper-actions { display: flex; flex-direction: column; padding-right: .4rem; padding-left: 0; gap: 1px; border: none !important; background: transparent !important; box-shadow: none !important; }
 .builder-budget small { color: #5f6d82; font-size: .62rem; font-weight: 550; letter-spacing: 0; line-height: 1.5; text-transform: none; }
 .builder-workspace { display: grid; grid-template-columns: 16rem minmax(0,1fr) 19rem; gap: 1rem; margin-top: 1rem; }
 .builder-steps, .builder-summary, .builder-stage { border: 1px solid rgba(148,163,184,.15); border-radius: 1.2rem; background: rgba(9,14,23,.9); }
