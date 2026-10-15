@@ -1,5 +1,5 @@
 import { getClient } from "@/lib/apollo/apollo-client";
-import { GET_PRODUCT_BY_SLUG, GET_PRODUCTS } from "@/lib/graphql/queries";
+import { GET_BUILDER_CATEGORY_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS } from "@/lib/graphql/queries";
 import {
   CatalogFilters,
   CatalogResult,
@@ -115,33 +115,41 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 
+const BUILDER_CATEGORIES = [
+  "procesadores",
+  "placas-madre",
+  "memoria-ram",
+  "tarjetas-graficas",
+  "almacenamiento",
+  "fuentes-de-poder",
+  "gabinetes",
+  "refrigeracion"
+];
+
 export async function getAllBuilderProducts(): Promise<Product[]> {
   if (isDemoMode()) return demoProducts;
   if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) return [];
 
   try {
-    const allProducts: Product[] = [];
-    let after: string | null | undefined = null;
-    let hasNext = true;
-    let pages = 0;
+    const client = getClient();
+    const results = await Promise.all(
+      BUILDER_CATEGORIES.map(async (category) => {
+        try {
+          const { data } = await client.query({
+            query: GET_BUILDER_CATEGORY_PRODUCTS,
+            variables: { category, first: 100 },
+            fetchPolicy: "no-cache",
+          });
+          const nodes = (data as { products?: { nodes?: Product[] } })?.products?.nodes ?? [];
+          return nodes;
+        } catch (err) {
+          console.error(`Failed to load category ${category}`, err);
+          return [];
+        }
+      })
+    );
 
-    while (hasNext && pages < 10) {
-      const { data } = await getClient().query({
-        query: GET_PRODUCTS,
-        variables: { first: 100, after },
-        fetchPolicy: "no-cache",
-      });
-      const result = data as {
-        products?: { nodes?: Product[]; pageInfo?: CatalogResult["pageInfo"] };
-      };
-      const nodes = result.products?.nodes ?? [];
-      allProducts.push(...nodes);
-      hasNext = Boolean(result.products?.pageInfo?.hasNextPage);
-      after = result.products?.pageInfo?.endCursor;
-      pages++;
-    }
-
-    return allProducts;
+    return results.flat();
   } catch (error) {
     console.error("Failed to load all builder products", error);
     return [];

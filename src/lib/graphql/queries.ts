@@ -46,3 +46,29 @@ export const GET_PRODUCT_BY_SLUG = gql`
   ${PRODUCT_FIELDS}
   query GetProductBySlug($slug: ID!) { product(id: $slug, idType: SLUG) { ...ProductFields } }
 `;
+
+
+export const GET_BUILDER_CATEGORY_PRODUCTS = gql`
+  query GetBuilderCategoryProducts($category: String, $first: Int = 100) {
+    products(first: $first, where: { category: $category }) {
+      nodes {
+        id
+        databaseId
+        name
+        slug
+        sku
+        description
+        image { sourceUrl altText }
+        productCategories { nodes { id databaseId name slug count } }
+        ... on SimpleProduct {
+          price regularPrice salePrice stockStatus stockQuantity
+          nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+        }
+        ... on VariableProduct {
+          price regularPrice salePrice stockStatus stockQuantity
+          nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+        }
+      }
+    }
+  }
+`;
