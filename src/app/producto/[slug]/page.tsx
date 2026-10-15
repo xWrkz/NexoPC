@@ -10,6 +10,32 @@ import SpecLabel from "@/components/SpecLabel";
 
 const usageLabels: Record<string, string> = { estudio: "Estudio", estudiantes: "Estudio", trabajo: "Trabajo", productividad: "Productividad", programacion: "Programación", desarrollo: "Programación", gaming: "Gaming", juegos: "Gaming", creacion: "Creación", diseno: "Diseño" };
 
+
+function parseSpecsFromDescription(html?: string): { name: string; label: string; options: string[] }[] {
+  if (!html) return [];
+  const regex = /<li><strong>([^<:]+):?<\/strong>\s*([^<]+)<\/li>/gi;
+  const specs: { name: string; label: string; options: string[] }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    const label = match[1].trim();
+    const val = match[2].trim();
+    if (label && val) {
+      specs.push({
+        name: label,
+        label,
+        options: [val],
+      });
+    }
+  }
+  return specs;
+}
+
+function extractSummaryFromDescription(html?: string): string {
+  if (!html) return "";
+  const match = html.match(/<p>([\s\S]*?)<\/p>/i);
+  return match ? match[1].trim() : "";
+}
+
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
@@ -20,10 +46,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const related = (relatedCatalog?.products ?? []).filter((item) => item.slug !== product.slug).slice(0, 4);
   const uses = [...new Set((product.productTags?.nodes ?? []).map((tag) => usageLabels[tag.slug]).filter(Boolean))];
   const services = [{ Icon: Truck, title: "Envío coordinado", text: "Acordamos contigo los detalles" }, { Icon: ShieldCheck, title: "Compra informada", text: "Variante y disponibilidad validadas" }, { Icon: Package, title: "Soporte NexoPC", text: "Antes y después de comprar" }];
+  const parsedSpecs = parseSpecsFromDescription(product.description);
+  const effectiveAttributes = product.attributes?.nodes?.length ? product.attributes.nodes : parsedSpecs;
+  const summary = product.shortDescription || extractSummaryFromDescription(product.description);
 
-  return <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12"><nav className="product-breadcrumb" aria-label="Ruta del producto"><Link href="/tienda">Componentes</Link><ChevronRight size={14}/><span>{product.name}</span></nav><div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_.95fr]"><ProductGallery name={product.name} images={gallery}/><div className="product-commerce"><p className="eyebrow">{primaryCategory?.name ?? "Componente NexoPC"}</p><h1 className="font-display mt-3 text-4xl font-bold leading-tight sm:text-5xl">{product.name}</h1>{product.sku ? <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">SKU · {product.sku}</p> : null}{uses.length ? <div className="mt-4 flex flex-wrap gap-2">{uses.map((use) => <span className="signal-chip" key={use}><Sparkles size={12}/>{use}</span>)}</div> : null}<div className="mt-6 flex flex-wrap items-baseline gap-3"><p className="price text-4xl">{formatPrice(product.price)}</p>{product.salePrice && product.regularPrice ? <p className="text-lg text-slate-500 line-through">{formatPrice(product.regularPrice)}</p> : null}</div><p className={`product-availability ${product.stockStatus === "IN_STOCK" ? "available" : "unavailable"}`}><CheckCircle2 size={17}/>{product.stockStatus === "IN_STOCK" ? "Disponible para coordinar" : "Temporalmente agotado"}</p>{product.shortDescription ? <div className="product-copy mt-6 max-w-xl text-sm leading-7 text-slate-300" dangerouslySetInnerHTML={{ __html: product.shortDescription }}/> : null}<div className="product-purchase"><AddToCartButton product={product}/></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{services.map(({ Icon, title, text }) => <div className="service-tile" key={title}><Icon size={17} className="text-orange-300"/><p>{title}</p><small>{text}</small></div>)}</div></div></div>
+  return <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12"><nav className="product-breadcrumb" aria-label="Ruta del producto"><Link href="/tienda">Componentes</Link><ChevronRight size={14}/><span>{product.name}</span></nav><div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_.95fr]"><ProductGallery name={product.name} images={gallery}/><div className="product-commerce"><p className="eyebrow">{primaryCategory?.name ?? "Componente NexoPC"}</p><h1 className="font-display mt-3 text-4xl font-bold leading-tight sm:text-5xl">{product.name}</h1>{product.sku ? <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">SKU · {product.sku}</p> : null}{uses.length ? <div className="mt-4 flex flex-wrap gap-2">{uses.map((use) => <span className="signal-chip" key={use}><Sparkles size={12}/>{use}</span>)}</div> : null}<div className="mt-6 flex flex-wrap items-baseline gap-3"><p className="price text-4xl">{formatPrice(product.price)}</p>{product.salePrice && product.regularPrice ? <p className="text-lg text-slate-500 line-through">{formatPrice(product.regularPrice)}</p> : null}</div><p className={`product-availability ${product.stockStatus === "IN_STOCK" ? "available" : "unavailable"}`}><CheckCircle2 size={17}/>{product.stockStatus === "IN_STOCK" ? "Disponible para coordinar" : "Temporalmente agotado"}</p>{summary ? <div className="product-copy mt-6 max-w-xl text-sm leading-7 text-slate-300" dangerouslySetInnerHTML={{ __html: summary }}/> : null}<div className="product-purchase"><AddToCartButton product={product}/></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{services.map(({ Icon, title, text }) => <div className="service-tile" key={title}><Icon size={17} className="text-orange-300"/><p>{title}</p><small>{text}</small></div>)}</div></div></div>
 
-    <section className="product-specs"><div><p className="eyebrow">Ficha técnica</p><h2 className="font-display mt-3 text-3xl font-bold">Especificaciones para decidir con claridad</h2><p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">Consulta los datos disponibles y usa las ayudas para entender los términos más importantes.</p></div><div className="panel overflow-visible">{product.attributes?.nodes.length ? product.attributes.nodes.map((attribute) => <div key={attribute.name} className="grid gap-1 border-b border-white/8 p-4 last:border-0 sm:grid-cols-[.38fr_1fr]"><span className="text-sm font-bold text-slate-400"><SpecLabel label={attribute.label || attribute.name}/></span><span className="text-sm text-slate-100">{attribute.options.join(", ") || "Por confirmar"}</span></div>) : <p className="p-5 text-sm leading-6 text-slate-400">La ficha técnica aún está incompleta. Confirma con nuestro equipo cualquier dato importante antes de decidir.</p>}</div></section>
+    <section className="product-specs"><div><p className="eyebrow">Ficha técnica</p><h2 className="font-display mt-3 text-3xl font-bold">Especificaciones para decidir con claridad</h2><p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">Consulta los datos disponibles y usa las ayudas para entender los términos más importantes.</p></div><div className="panel overflow-visible">{effectiveAttributes.length ? effectiveAttributes.map((attribute) => <div key={attribute.name} className="grid gap-1 border-b border-white/8 p-4 last:border-0 sm:grid-cols-[.38fr_1fr]"><span className="text-sm font-bold text-slate-400"><SpecLabel label={attribute.label || attribute.name}/></span><span className="text-sm text-slate-100">{attribute.options.join(", ") || "Por confirmar"}</span></div>) : <p className="p-5 text-sm leading-6 text-slate-400">La ficha técnica aún está incompleta. Confirma con nuestro equipo cualquier dato importante antes de decidir.</p>}</div></section>
 
     {related.length ? <section className="mt-16"><div className="flex items-end justify-between"><div><p className="eyebrow">Sigue explorando</p><h2 className="font-display mt-3 text-3xl font-bold">También puede interesarte</h2></div><Link href="/tienda" className="text-sm font-bold text-orange-300">Ver catálogo</Link></div><div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{related.map((item) => <ProductCard product={item} key={item.id}/>)}</div></section> : null}
   </div>;
