@@ -113,3 +113,37 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     throw new CatalogSourceError();
   }
 }
+
+
+export async function getAllBuilderProducts(): Promise<Product[]> {
+  if (isDemoMode()) return demoProducts;
+  if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) return [];
+
+  try {
+    const allProducts: Product[] = [];
+    let after: string | null | undefined = null;
+    let hasNext = true;
+    let pages = 0;
+
+    while (hasNext && pages < 10) {
+      const { data } = await getClient().query({
+        query: GET_PRODUCTS,
+        variables: { first: 100, after },
+        fetchPolicy: "no-cache",
+      });
+      const result = data as {
+        products?: { nodes?: Product[]; pageInfo?: CatalogResult["pageInfo"] };
+      };
+      const nodes = result.products?.nodes ?? [];
+      allProducts.push(...nodes);
+      hasNext = Boolean(result.products?.pageInfo?.hasNextPage);
+      after = result.products?.pageInfo?.endCursor;
+      pages++;
+    }
+
+    return allProducts;
+  } catch (error) {
+    console.error("Failed to load all builder products", error);
+    return [];
+  }
+}

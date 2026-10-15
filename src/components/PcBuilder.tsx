@@ -29,12 +29,97 @@ const goals = [
   { id: "programming", label: "Programación" }, { id: "creation", label: "Diseño y creación" }, { id: "gaming", label: "Gaming" },
 ];
 
-function productCategory(product: Product) {
-  return steps.find((step) => step.componentType === product.nexopcHardware?.componentTypeSlug)?.key;
+const categorySlugMap: Record<string, BuilderCategory> = {
+  "procesadores": "cpu",
+  "procesador": "cpu",
+  "cpu": "cpu",
+  "placas-madre": "motherboard",
+  "placa-madre": "motherboard",
+  "motherboard": "motherboard",
+  "memoria-ram": "ram",
+  "memorias-ram": "ram",
+  "ram": "ram",
+  "tarjetas-graficas": "gpu",
+  "tarjeta-grafica": "gpu",
+  "tarjetas-de-video": "gpu",
+  "gpu": "gpu",
+  "almacenamiento": "storage",
+  "discos": "storage",
+  "ssd": "storage",
+  "fuentes-de-poder": "psu",
+  "fuente-de-poder": "psu",
+  "fuentes": "psu",
+  "psu": "psu",
+  "gabinetes": "case",
+  "gabinete": "case",
+  "cases": "case",
+  "case": "case",
+  "refrigeracion": "cooler",
+  "refrigeración": "cooler",
+  "coolers": "cooler",
+  "cooler": "cooler",
+};
+
+function productCategory(product: Product): BuilderCategory | undefined {
+  if (product.nexopcHardware?.componentTypeSlug) {
+    const fromHardware = steps.find((step) => step.componentType === product.nexopcHardware?.componentTypeSlug)?.key;
+    if (fromHardware) return fromHardware;
+  }
+  const categoryNodes = product.productCategories?.nodes ?? [];
+  for (const cat of categoryNodes) {
+    const slug = cat.slug?.toLowerCase();
+    if (slug && categorySlugMap[slug]) return categorySlugMap[slug];
+    const name = cat.name?.toLowerCase();
+    if (name && categorySlugMap[name]) return categorySlugMap[name];
+  }
+  return undefined;
 }
+
+function extractHardwareFromDescription(html?: string, category?: BuilderCategory): ComponentSpecs {
+  if (!html) return {};
+  const tdpMatch = html.match(/(?:TDP|Consumo):\s*<\/strong>\s*(\d+)\s*W/i);
+  const psuWattsMatch = html.match(/(?:Potencia|Vatios|Capacidad):\s*<\/strong>\s*(\d+)\s*W/i);
+  const recPsuMatch = html.match(/(?:Fuente Recomendada|Recomendada):\s*<\/strong>\s*(\d+)\s*W/i);
+  const lengthMatch = html.match(/(?:Longitud|Largo):\s*<\/strong>\s*(\d+)\s*mm/i);
+
+  return {
+    tdpWatts: (category === "cpu" || category === "gpu") && tdpMatch ? parseInt(tdpMatch[1], 10) : undefined,
+    continuousWatts: category === "psu" && psuWattsMatch ? parseInt(psuWattsMatch[1], 10) : undefined,
+    recommendedPsuWatts: category === "gpu" && recPsuMatch ? parseInt(recPsuMatch[1], 10) : undefined,
+    gpuLengthMm: category === "gpu" && lengthMatch ? parseInt(lengthMatch[1], 10) : undefined,
+  };
+}
+
 function toComponent(product: Product, category: BuilderCategory): ComponentePC {
   const specs = product.nexopcHardware;
-  return { id: product.id, productId: product.databaseId, categoria: category, nombre: product.name, precio: getPriceValue(product.price), image: product.image?.sourceUrl, specs: specs ? { socketId: specs.socketId ?? undefined, memoryTypeId: specs.memoryTypeId ?? undefined, formFactorId: specs.formFactorId ?? undefined, storageInterfaceId: specs.storageInterfaceId ?? undefined, storageInterfaceSlug: specs.storageInterfaceSlug ?? undefined, supportedMemoryTypeIds: specs.supportedMemoryTypeIds, supportedStorageInterfaceIds: specs.supportedStorageInterfaceIds, supportedFormFactorIds: specs.supportedFormFactorIds, tdpWatts: specs.tdpWatts ?? undefined, gpuLengthMm: specs.gpuLengthMm ?? undefined, recommendedPsuWatts: specs.recommendedPsuWatts ?? undefined, maxGpuLengthMm: specs.maxGpuLengthMm ?? undefined, continuousWatts: specs.continuousWatts ?? undefined, m2Slots: specs.m2Slots ?? undefined, sataPorts: specs.sataPorts ?? undefined, bays25: specs.bays25 ?? undefined, bays35: specs.bays35 ?? undefined } : {} };
+  const descSpecs = extractHardwareFromDescription(product.description, category);
+  return {
+    id: product.id,
+    productId: product.databaseId,
+    categoria: category,
+    nombre: product.name,
+    precio: getPriceValue(product.price),
+    image: product.image?.sourceUrl,
+    specs: {
+      socketId: specs?.socketId ?? undefined,
+      memoryTypeId: specs?.memoryTypeId ?? undefined,
+      formFactorId: specs?.formFactorId ?? undefined,
+      storageInterfaceId: specs?.storageInterfaceId ?? undefined,
+      storageInterfaceSlug: specs?.storageInterfaceSlug ?? undefined,
+      supportedMemoryTypeIds: specs?.supportedMemoryTypeIds,
+      supportedStorageInterfaceIds: specs?.supportedStorageInterfaceIds,
+      supportedFormFactorIds: specs?.supportedFormFactorIds,
+      tdpWatts: specs?.tdpWatts ?? descSpecs.tdpWatts,
+      gpuLengthMm: specs?.gpuLengthMm ?? descSpecs.gpuLengthMm,
+      recommendedPsuWatts: specs?.recommendedPsuWatts ?? descSpecs.recommendedPsuWatts,
+      maxGpuLengthMm: specs?.maxGpuLengthMm ?? undefined,
+      continuousWatts: specs?.continuousWatts ?? descSpecs.continuousWatts,
+      m2Slots: specs?.m2Slots ?? undefined,
+      sataPorts: specs?.sataPorts ?? undefined,
+      bays25: specs?.bays25 ?? undefined,
+      bays35: specs?.bays35 ?? undefined,
+    }
+  };
 }
 
 export default function PcBuilder({ products }: { products: Product[] }) {
