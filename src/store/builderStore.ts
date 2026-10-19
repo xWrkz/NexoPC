@@ -19,9 +19,11 @@ export const emptySelection: Record<BuilderCategory, ComponentePC | null> = {
 };
 
 export interface BuilderState {
+  activeGoal: string;
   seleccion: Record<BuilderCategory, ComponentePC | null>;
   configsByGoal: Record<string, Record<BuilderCategory, ComponentePC | null>>;
   result: CompatibilityResult;
+  setActiveGoal: (goalId: string) => void;
   setComponente: (
     category: BuilderCategory,
     component: ComponentePC | null,
@@ -42,19 +44,24 @@ export interface BuilderState {
 export const useBuilderStore = create<BuilderState>()(
   persist(
     (set, get) => ({
+      activeGoal: "first-pc",
       seleccion: emptySelection,
       configsByGoal: {},
       result: validarCompatibilidad(emptySelection),
 
+      setActiveGoal: (goalId) => set({ activeGoal: goalId }),
+
       setComponente: (category, component, currentGoal) => {
+        const effectiveGoal = currentGoal || get().activeGoal;
         const seleccion = { ...get().seleccion, [category]: component };
-        const configsByGoal = currentGoal
+        const configsByGoal = effectiveGoal
           ? {
               ...get().configsByGoal,
-              [currentGoal]: { ...(get().configsByGoal[currentGoal] || {}), ...seleccion },
+              [effectiveGoal]: { ...(get().configsByGoal[effectiveGoal] || {}), ...seleccion },
             }
           : get().configsByGoal;
         set({
+          activeGoal: effectiveGoal,
           seleccion,
           configsByGoal,
           result: validarCompatibilidad(seleccion),
@@ -62,10 +69,12 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       setSeleccion: (seleccion, currentGoal) => {
-        const configsByGoal = currentGoal
-          ? { ...get().configsByGoal, [currentGoal]: { ...seleccion } }
+        const effectiveGoal = currentGoal || get().activeGoal;
+        const configsByGoal = effectiveGoal
+          ? { ...get().configsByGoal, [effectiveGoal]: { ...seleccion } }
           : get().configsByGoal;
         set({
+          activeGoal: effectiveGoal,
           seleccion,
           configsByGoal,
           result: validarCompatibilidad(seleccion),
@@ -86,11 +95,13 @@ export const useBuilderStore = create<BuilderState>()(
       loadGoal: (targetGoalId, currentGoalId) => {
         const state = get();
         const updatedConfigs = { ...state.configsByGoal };
-        if (currentGoalId) {
-          updatedConfigs[currentGoalId] = { ...state.seleccion };
+        const fromGoal = currentGoalId || state.activeGoal;
+        if (fromGoal) {
+          updatedConfigs[fromGoal] = { ...state.seleccion };
         }
         const targetSelection = updatedConfigs[targetGoalId] || emptySelection;
         set({
+          activeGoal: targetGoalId,
           configsByGoal: updatedConfigs,
           seleccion: { ...targetSelection },
           result: validarCompatibilidad(targetSelection),
@@ -100,12 +111,14 @@ export const useBuilderStore = create<BuilderState>()(
       copyCurrentToGoal: (targetGoalId, currentGoalId) => {
         const state = get();
         const current = { ...state.seleccion };
+        const fromGoal = currentGoalId || state.activeGoal;
         const updatedConfigs = {
           ...state.configsByGoal,
-          ...(currentGoalId ? { [currentGoalId]: { ...current } } : {}),
+          ...(fromGoal ? { [fromGoal]: { ...current } } : {}),
           [targetGoalId]: { ...current },
         };
         set({
+          activeGoal: targetGoalId,
           configsByGoal: updatedConfigs,
           seleccion: { ...current },
           result: validarCompatibilidad(current),
@@ -115,8 +128,9 @@ export const useBuilderStore = create<BuilderState>()(
       resetCurrentGoal: (currentGoalId) => {
         const state = get();
         const updatedConfigs = { ...state.configsByGoal };
-        if (currentGoalId) {
-          updatedConfigs[currentGoalId] = { ...emptySelection };
+        const target = currentGoalId || state.activeGoal;
+        if (target) {
+          updatedConfigs[target] = { ...emptySelection };
         }
         set({
           configsByGoal: updatedConfigs,
@@ -139,6 +153,7 @@ export const useBuilderStore = create<BuilderState>()(
     {
       name: "nexopc-builder",
       partialize: (state) => ({
+        activeGoal: state.activeGoal,
         seleccion: state.seleccion,
         configsByGoal: state.configsByGoal,
       }),

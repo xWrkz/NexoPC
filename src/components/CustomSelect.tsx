@@ -34,7 +34,6 @@ export default function CustomSelect({
     if (!open && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      // If there's less than 220px below and enough space above, open upwards
       setOpenUpward(spaceBelow < 220 && rect.top > 180);
     }
     setOpen((prev) => !prev);
@@ -47,7 +46,21 @@ export default function CustomSelect({
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const currentIndex = Math.max(0, options.findIndex((opt) => opt.value === value));
+        const nextIndex =
+          event.key === "ArrowDown"
+            ? (currentIndex + 1) % options.length
+            : (currentIndex - 1 + options.length) % options.length;
+        if (options[nextIndex]) {
+          onChange(options[nextIndex].value);
+        }
+      }
     };
 
     if (open) {
@@ -58,7 +71,7 @@ export default function CustomSelect({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, options, value, onChange]);
 
   return (
     <div ref={containerRef} className={`custom-select-container relative flex items-center ${className}`}>

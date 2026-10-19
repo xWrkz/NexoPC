@@ -1,15 +1,9 @@
-export function formatPrice(price?: string): string {
-    if (!price) return "Precio por confirmar";
+import { isPriceRange, parsePriceValue } from "@/lib/utils/price";
 
-    const cleaned = price
-        .replace(/&nbsp;/g, "")
-        .replace(/S\//g, "")
-        .replace(/,/g, "")
-        .replace(/[^0-9.]/g, "")
-        .trim();
+export function formatPrice(price?: string | null): string {
+  const num = parsePriceValue(price);
+  if (num === null) return "Precio por confirmar";
 
-    const num = parseFloat(cleaned);
-    if (isNaN(num) || num <= 0) return "Precio por confirmar";
-
-    return `S/ ${num.toFixed(2)}`;
+  const formatted = `S/ ${num.toFixed(2)}`;
+  return isPriceRange(price) ? `Desde ${formatted}` : formatted;
 }

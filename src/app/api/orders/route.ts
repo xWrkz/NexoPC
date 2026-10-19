@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 
 type WooProduct = {
   id: number;
+  type?: string;
   price: string;
   stock_status: string;
   stock_quantity: number | null;
@@ -73,12 +74,39 @@ export async function POST(request: Request) {
   }
 
   try {
-    const items = [];
+    const aggregatedMap = new Map<string, { productId: number; variationId?: number; quantity: number }>();
     for (const item of parsed.data.items) {
-      const path = item.variationId
-        ? `products/${item.productId}/variations/${item.variationId}`
-        : `products/${item.productId}`;
-      const product = (await woo(path)) as WooProduct;
+      const key = `${item.productId}:${item.variationId ?? 0}`;
+      const existing = aggregatedMap.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        aggregatedMap.set(key, { ...item });
+      }
+    }
+
+    const uniqueItems = Array.from(aggregatedMap.values());
+    for (const item of uniqueItems) {
+      if (item.quantity > 20) {
+        return error("No puedes solicitar más de 20 unidades de un mismo producto.", { items: ["No puedes solicitar más de 20 unidades de un mismo producto."] }, 422);
+      }
+    }
+
+    const fetchedProducts = await Promise.all(
+      uniqueItems.map(async (item) => {
+        const path = item.variationId
+          ? `products/${item.productId}/variations/${item.variationId}`
+          : `products/${item.productId}`;
+        const product = (await woo(path)) as WooProduct;
+        return { item, product };
+      })
+    );
+
+    const items = [];
+    for (const { item, product } of fetchedProducts) {
+      if (!item.variationId && product.type === "variable") {
+        return error(`Selecciona una variante válida para ${product.name}.`, undefined, 422);
+      }
 
       if (product.stock_status !== "instock") {
         return error(`${product.name} ya no está disponible.`, undefined, 409);

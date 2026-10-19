@@ -1,5 +1,6 @@
+import { cache } from "react";
 import { getClient } from "@/lib/apollo/apollo-client";
-import { GET_BUILDER_CATEGORY_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS } from "@/lib/graphql/queries";
+import { GET_BUILDER_CATEGORY_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS, GET_RELATED_PRODUCTS } from "@/lib/graphql/queries";
 import {
   CatalogFilters,
   CatalogResult,
@@ -102,7 +103,7 @@ export async function getProducts() {
   return result.products;
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | null> {
+export const getProductBySlug = cache(async function getProductBySlug(slug: string): Promise<Product | null> {
   if (isDemoMode()) return demoProducts.find((product) => product.slug === slug) ?? null;
   if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) throw new CatalogSourceError("El catálogo no está configurado.");
   try {
@@ -112,8 +113,28 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     console.error("Product query failed", error);
     throw new CatalogSourceError();
   }
-}
+});
 
+export async function getRelatedProducts(categorySlug: string, excludeSlug: string): Promise<Product[]> {
+  if (isDemoMode()) {
+    return filterDemoProducts(demoProducts, { categories: [categorySlug] })
+      .filter((item) => item.slug !== excludeSlug)
+      .slice(0, 4);
+  }
+  if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) return [];
+  try {
+    const { data } = await getClient().query({
+      query: GET_RELATED_PRODUCTS,
+      variables: { category: categorySlug, first: 6 },
+      fetchPolicy: "no-cache",
+    });
+    const nodes = (data as { products?: { nodes?: Product[] } })?.products?.nodes ?? [];
+    return nodes.filter((item) => item.slug !== excludeSlug).slice(0, 4);
+  } catch (error) {
+    console.error("Related products query failed", error);
+    return [];
+  }
+}
 
 const BUILDER_CATEGORIES = [
   "procesadores",
@@ -149,7 +170,13 @@ export async function getAllBuilderProducts(): Promise<Product[]> {
       })
     );
 
-    return results.flat();
+    const uniqueMap = new Map<string, Product>();
+    for (const product of results.flat()) {
+      if (product?.id && !uniqueMap.has(product.id)) {
+        uniqueMap.set(product.id, product);
+      }
+    }
+    return Array.from(uniqueMap.values());
   } catch (error) {
     console.error("Failed to load all builder products", error);
     return [];

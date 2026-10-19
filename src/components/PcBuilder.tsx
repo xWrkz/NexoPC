@@ -76,33 +76,39 @@ function productCategory(product: Product): BuilderCategory | undefined {
 }
 
 const socketMap: Record<string, number> = {
-  "am5": 1,
-  "am4": 2,
+  "am4": 1,
+  "am5": 2,
   "lga 1700": 3,
   "lga1700": 3,
-  "1700": 3,
-  "lga 1200": 4,
-  "lga1200": 4,
-  "1200": 4,
-  "lga 1151": 5,
-  "lga1151": 5,
-  "1151": 5,
+  "lga 1851": 4,
+  "lga1851": 4,
+  "lga 1200": 5,
+  "lga1200": 5,
+  "lga 1151": 6,
+  "lga1151": 6,
 };
 
 const memoryTypeMap: Record<string, number> = {
-  "ddr5": 1,
-  "ddr4": 2,
+  "ddr4": 1,
+  "ddr5": 2,
 };
 
-const formFactorMap: Record<string, number> = {
-  "mini-itx": 3,
-  "mini itx": 3,
-  "mitx": 3,
-  "micro-atx": 2,
-  "micro atx": 2,
-  "matx": 2,
-  "atx": 1,
-};
+function detectBoardFormFactor(text: string): number | undefined {
+  if (/\be-?atx\b/i.test(text)) return 4;
+  if (/\b(?:micro[- ]?atx|matx|m-atx)\b/i.test(text)) return 2;
+  if (/\b(?:mini[- ]?itx|mitx)\b/i.test(text)) return 1;
+  if (/\batx\b/i.test(text)) return 3;
+  return undefined;
+}
+
+function detectCaseSupportedFormFactors(text: string): number[] | undefined {
+  const withoutSubtypes = text.replace(/\b(?:micro|mini)[- ]?(?:atx|itx)\b|\b(?:matx|m-atx|mitx)\b/gi, "");
+  if (/\be-?atx\b/i.test(text)) return [1, 2, 3, 4];
+  if (/\batx\b/i.test(withoutSubtypes)) return [1, 2, 3];
+  if (/\b(?:micro[- ]?atx|matx|m-atx)\b/i.test(text)) return [1, 2];
+  if (/\b(?:mini[- ]?itx|mitx)\b/i.test(text)) return [1];
+  return undefined;
+}
 
 function extractHardwareFromDescription(name: string, html?: string, category?: BuilderCategory): ComponentSpecs {
   const text = (name + " " + (html || "")).toLowerCase();
@@ -123,83 +129,93 @@ function extractHardwareFromDescription(name: string, html?: string, category?: 
     }
   }
 
-  let formFactorId: number | undefined;
-  for (const [k, v] of Object.entries(formFactorMap)) {
-    if (text.includes(k)) {
-      formFactorId = v;
-      break;
-    }
-  }
+  const formFactorId = detectBoardFormFactor(text);
 
   const tdpMatch = text.match(/(?:tdp|consumo)[\s:]*(\d+)\s*w/i);
-  const psuWattsMatch = text.match(/(\d{3,4})\s*w(?:atts)?/i);
+  const psuWattsMatch = text.match(/\b(\d{3,4})\s*w(?:atts)?\b/i);
   const recPsuMatch = text.match(/(?:fuente recomendada|recomendada)[\s:]*(\d+)\s*w/i);
-  const lengthMatch = text.match(/(\d{3})\s*mm/i);
+  const gpuContextLengthMatch = text.match(/(?:gpu|tarjeta|gr[aá]fica|vga|longitud|largo)[^.\n]{0,40}?(\d{3})\s*mm/i);
+  const genericLengthMatch = text.match(/\b(\d{3})\s*mm\b/i);
 
   if (category === "cpu") {
-    const sId = socketId || (text.includes("am5") || text.includes("ryzen 7000") || text.includes("ryzen 8000") || text.includes("ryzen 9000") ? 1 : text.includes("am4") || text.includes("ryzen 3000") || text.includes("ryzen 5000") ? 2 : 3);
-    const mId = memoryTypeId || (sId === 1 ? 1 : sId === 2 ? 2 : 1);
+    let sId = socketId;
+    if (!sId) {
+      if (text.includes("ryzen 7000") || text.includes("ryzen 8000") || text.includes("ryzen 9000") || /ryzen\s+[3579]\s+[789]\d{3}/i.test(text)) {
+        sId = 2; // AM5
+      } else if (text.includes("ryzen 3000") || text.includes("ryzen 4000") || text.includes("ryzen 5000") || /ryzen\s+[3579]\s+[345]\d{3}/i.test(text)) {
+        sId = 1; // AM4
+      } else if (/core\s+ultra/i.test(text)) {
+        sId = 4; // LGA 1851
+      } else if (/i[3579][\s-]*1[234]\d{2,3}/i.test(text)) {
+        sId = 3; // LGA 1700
+      }
+    }
+    const mId = memoryTypeId ?? (sId === 1 ? 1 : sId === 2 || sId === 4 ? 2 : undefined);
     return {
       socketId: sId,
       memoryTypeId: mId,
-      tdpWatts: tdpMatch ? parseInt(tdpMatch[1], 10) : 65,
+      tdpWatts: tdpMatch ? parseInt(tdpMatch[1], 10) : undefined,
     };
   }
 
   if (category === "motherboard") {
-    const sId = socketId || (text.includes("am5") || text.includes("b650") || text.includes("x670") || text.includes("a620") || text.includes("x870") ? 1 : text.includes("am4") || text.includes("b550") || text.includes("b450") || text.includes("a520") || text.includes("x570") ? 2 : 3);
-    const supportedMem = memoryTypeId ? [memoryTypeId] : (sId === 1 ? [1] : sId === 2 ? [2] : [1, 2]);
+    let sId = socketId;
+    if (!sId) {
+      if (/\b(?:b650|x670|a620|x870|b850)[e]?\b/i.test(text)) sId = 2; // AM5
+      else if (/\b(?:b550|b450|a520|x570|a320)\b/i.test(text)) sId = 1; // AM4
+      else if (/\b(?:b760|z790|h610|b660|z690|h770)\b/i.test(text)) sId = 3; // LGA 1700
+      else if (/\b(?:z890|b860|h810)\b/i.test(text)) sId = 4; // LGA 1851
+    }
+    const supportedMem = memoryTypeId ? [memoryTypeId] : sId === 1 ? [1] : sId === 2 || sId === 4 ? [2] : undefined;
     return {
       socketId: sId,
-      formFactorId: formFactorId || 1,
+      formFactorId,
       supportedMemoryTypeIds: supportedMem,
-      supportedStorageInterfaceIds: [1, 2],
-      supportedFormFactorIds: [1, 2, 3],
+      supportedStorageInterfaceIds: [1, 2, 3, 4],
     };
   }
 
   if (category === "ram") {
     return {
-      memoryTypeId: memoryTypeId || (text.includes("ddr5") ? 1 : 2),
+      memoryTypeId,
     };
   }
 
   if (category === "gpu") {
+    const parsedTdp = tdpMatch ? parseInt(tdpMatch[1], 10) : undefined;
+    const rawLen = gpuContextLengthMatch ? parseInt(gpuContextLengthMatch[1], 10) : genericLengthMatch ? parseInt(genericLengthMatch[1], 10) : undefined;
+    const gpuLengthMm = rawLen && rawLen >= 140 && rawLen <= 450 ? rawLen : undefined;
     return {
-      tdpWatts: tdpMatch ? parseInt(tdpMatch[1], 10) : 220,
-      gpuLengthMm: lengthMatch ? parseInt(lengthMatch[1], 10) : 285,
-      recommendedPsuWatts: recPsuMatch ? parseInt(recPsuMatch[1], 10) : (tdpMatch ? parseInt(tdpMatch[1], 10) + 300 : 650),
+      tdpWatts: parsedTdp,
+      gpuLengthMm,
+      recommendedPsuWatts: recPsuMatch ? parseInt(recPsuMatch[1], 10) : parsedTdp ? parsedTdp + 300 : undefined,
     };
   }
 
   if (category === "storage") {
     const isNvme = text.includes("nvme") || text.includes("m.2") || text.includes("pcie");
+    const isSata = text.includes("sata") || text.includes("2.5") || text.includes("3.5") || text.includes("hdd");
+    if (!isNvme && !isSata) return {};
     return {
-      storageInterfaceId: isNvme ? 1 : 2,
-      storageInterfaceSlug: isNvme ? "m2_nvme" : "sata_2_5",
+      storageInterfaceId: isNvme ? 1 : 3,
+      storageInterfaceSlug: isNvme ? "m2_nvme" : text.includes("3.5") ? "sata_3_5" : "sata_2_5",
     };
   }
 
   if (category === "psu") {
     return {
-      continuousWatts: psuWattsMatch ? parseInt(psuWattsMatch[1], 10) : 750,
+      continuousWatts: psuWattsMatch ? parseInt(psuWattsMatch[1], 10) : undefined,
     };
   }
 
   if (category === "case") {
-    const isMini = formFactorId === 3;
-    const isMicro = formFactorId === 2;
+    const supportedFormFactorIds = detectCaseSupportedFormFactors(text);
+    const maxGpuLengthMm = gpuContextLengthMatch ? parseInt(gpuContextLengthMatch[1], 10) : undefined;
     return {
-      supportedFormFactorIds: isMini ? [3] : isMicro ? [2, 3] : [1, 2, 3],
-      maxGpuLengthMm: lengthMatch ? parseInt(lengthMatch[1], 10) : 360,
+      supportedFormFactorIds,
+      maxGpuLengthMm,
       bays25: 2,
       bays35: 2,
-    };
-  }
-
-  if (category === "cooler") {
-    return {
-      tdpWatts: 150,
     };
   }
 
@@ -209,6 +225,9 @@ function extractHardwareFromDescription(name: string, html?: string, category?: 
 function toComponent(product: Product, category: BuilderCategory): ComponentePC {
   const specs = product.nexopcHardware;
   const descSpecs = extractHardwareFromDescription(product.name, product.description, category);
+  const nonZero = (val?: number | null) => (val && val > 0 ? val : undefined);
+  const nonEmpty = (arr?: number[] | null) => (arr && arr.length > 0 ? arr : undefined);
+
   return {
     id: product.id,
     productId: product.databaseId,
@@ -217,24 +236,25 @@ function toComponent(product: Product, category: BuilderCategory): ComponentePC 
     precio: getPriceValue(product.price),
     image: product.image?.sourceUrl,
     specs: {
-      socketId: specs?.socketId ?? descSpecs.socketId,
-      memoryTypeId: specs?.memoryTypeId ?? descSpecs.memoryTypeId,
-      formFactorId: specs?.formFactorId ?? descSpecs.formFactorId,
-      storageInterfaceId: specs?.storageInterfaceId ?? descSpecs.storageInterfaceId,
-      storageInterfaceSlug: specs?.storageInterfaceSlug ?? descSpecs.storageInterfaceSlug,
-      supportedMemoryTypeIds: specs?.supportedMemoryTypeIds ?? descSpecs.supportedMemoryTypeIds,
-      supportedStorageInterfaceIds: specs?.supportedStorageInterfaceIds ?? descSpecs.supportedStorageInterfaceIds,
-      supportedFormFactorIds: specs?.supportedFormFactorIds ?? descSpecs.supportedFormFactorIds,
-      tdpWatts: specs?.tdpWatts ?? descSpecs.tdpWatts,
-      gpuLengthMm: specs?.gpuLengthMm ?? descSpecs.gpuLengthMm,
-      recommendedPsuWatts: specs?.recommendedPsuWatts ?? descSpecs.recommendedPsuWatts,
-      maxGpuLengthMm: specs?.maxGpuLengthMm ?? descSpecs.maxGpuLengthMm,
-      continuousWatts: specs?.continuousWatts ?? descSpecs.continuousWatts,
-      m2Slots: specs?.m2Slots ?? undefined,
-      sataPorts: specs?.sataPorts ?? undefined,
-      bays25: specs?.bays25 ?? descSpecs.bays25,
-      bays35: specs?.bays35 ?? descSpecs.bays35,
-    }
+      socketId: nonZero(specs?.socketId) ?? descSpecs.socketId,
+      memoryTypeId: nonZero(specs?.memoryTypeId) ?? descSpecs.memoryTypeId,
+      formFactorId: nonZero(specs?.formFactorId) ?? descSpecs.formFactorId,
+      storageInterfaceId: nonZero(specs?.storageInterfaceId) ?? descSpecs.storageInterfaceId,
+      storageInterfaceSlug: specs?.storageInterfaceSlug || descSpecs.storageInterfaceSlug,
+      supportedMemoryTypeIds: nonEmpty(specs?.supportedMemoryTypeIds) ?? descSpecs.supportedMemoryTypeIds,
+      supportedStorageInterfaceIds: nonEmpty(specs?.supportedStorageInterfaceIds) ?? descSpecs.supportedStorageInterfaceIds,
+      supportedFormFactorIds: nonEmpty(specs?.supportedFormFactorIds) ?? descSpecs.supportedFormFactorIds,
+      tdpWatts: nonZero(specs?.tdpWatts) ?? descSpecs.tdpWatts,
+      gpuLengthMm: nonZero(specs?.gpuLengthMm) ?? descSpecs.gpuLengthMm,
+      recommendedPsuWatts: nonZero(specs?.recommendedPsuWatts) ?? descSpecs.recommendedPsuWatts,
+      maxGpuLengthMm: nonZero(specs?.maxGpuLengthMm) ?? descSpecs.maxGpuLengthMm,
+      maxCoolerHeightMm: nonZero(specs?.maxCoolerHeightMm) ?? descSpecs.maxCoolerHeightMm,
+      continuousWatts: nonZero(specs?.continuousWatts) ?? descSpecs.continuousWatts,
+      m2Slots: nonZero(specs?.m2Slots),
+      sataPorts: nonZero(specs?.sataPorts),
+      bays25: nonZero(specs?.bays25) ?? descSpecs.bays25,
+      bays35: nonZero(specs?.bays35) ?? descSpecs.bays35,
+    },
   };
 }
 
@@ -320,38 +340,55 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const params = useSearchParams();
   const reduce = useReducedMotion();
   const initialMode = params.get("modo") === "guiado" ? "guided" : "advanced";
-  const initialGoal = params.get("uso") ?? "first-pc";
-  const [mode, setMode] = useState<"guided" | "advanced">(initialMode);
-  const [goal, setGoal] = useState(initialGoal);
-  const [budget, setBudget] = useState<number | undefined>();
-  const [activeCategory, setActiveCategory] = useState<BuilderCategory | null>(null);
-  const [search, setSearch] = useState("");
-  const [onlyCompatible, setOnlyCompatible] = useState(true);
-  const [onlyRecommended, setOnlyRecommended] = useState(false);
+  const urlGoal = params.get("uso");
   const {
+    activeGoal,
     seleccion,
     configsByGoal,
     result,
+    setActiveGoal,
     setComponente,
     loadGoal,
     copyCurrentToGoal,
     resetCurrentGoal,
     getTotal,
   } = useBuilderStore();
+  const [mode, setMode] = useState<"guided" | "advanced">(initialMode);
+  const goal = activeGoal || "first-pc";
+  const [budget, setBudget] = useState<number | undefined>();
+  const [activeCategory, setActiveCategory] = useState<BuilderCategory | null>(null);
+  const [search, setSearch] = useState("");
+  const [onlyCompatible, setOnlyCompatible] = useState(true);
+  const [onlyRecommended, setOnlyRecommended] = useState(false);
   const [pendingGoalChange, setPendingGoalChange] = useState<{
     targetGoalId: string;
     targetLabel: string;
   } | null>(null);
 
   useEffect(() => {
-    if (activeCategory) {
+    if (urlGoal && goals.some((g) => g.id === urlGoal) && urlGoal !== activeGoal) {
+      loadGoal(urlGoal, activeGoal);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlGoal]);
+
+  useEffect(() => {
+    if (activeCategory || pendingGoalChange) {
       const original = document.body.style.overflow;
       document.body.style.overflow = "hidden";
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Escape") {
+          if (pendingGoalChange) setPendingGoalChange(null);
+          else if (activeCategory) setActiveCategory(null);
+        }
+      };
+      window.addEventListener("keydown", onKeyDown);
       return () => {
         document.body.style.overflow = original;
+        window.removeEventListener("keydown", onKeyDown);
       };
     }
-  }, [activeCategory]);
+  }, [activeCategory, pendingGoalChange]);
   const addItem = useCartStore((state) => state.addItem);
   const selected = Object.values(seleccion).filter(Boolean) as ComponentePC[];
   const progress = Math.round((selected.length / steps.length) * 100);
@@ -436,7 +473,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
       return;
     }
     loadGoal(targetGoalId, goal);
-    setGoal(targetGoalId);
+    setActiveGoal(targetGoalId);
   };
   const addBuild = () => {
     if (!selected.length || result.errors.length || pendingPrices) return;
@@ -512,6 +549,9 @@ export default function PcBuilder({ products }: { products: Product[] }) {
         <m.div className="fixed inset-0 z-[90]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActiveCategory(null)} aria-label="Cerrar selector" />
           <m.aside
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Elige ${activeStep.label.toLowerCase()}`}
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
@@ -729,7 +769,6 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                       type="button"
                       onClick={() => {
                         loadGoal(pendingGoalChange.targetGoalId, goal);
-                        setGoal(pendingGoalChange.targetGoalId);
                         setPendingGoalChange(null);
                       }}
                       className="group relative flex w-full items-start gap-3.5 rounded-xl border border-amber-400/40 bg-amber-400/5 p-4 text-left transition hover:border-amber-400 hover:bg-amber-400/10 focus-ring"
@@ -764,7 +803,6 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                   type="button"
                   onClick={() => {
                     copyCurrentToGoal(pendingGoalChange.targetGoalId, goal);
-                    setGoal(pendingGoalChange.targetGoalId);
                     setPendingGoalChange(null);
                   }}
                   className="group relative flex w-full items-start gap-3.5 rounded-xl border border-white/10 bg-slate-800/40 p-4 text-left transition hover:border-white/20 hover:bg-slate-800/80 focus-ring"

@@ -2,21 +2,24 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { AlertTriangle, ArrowRight, Minus, PackageOpen, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { formatPrice } from "@/lib/utils/formatPrice";
 
 export default function Carrito() {
   const { items, removeItem, removeBuild, updateQuantity, getTotal, clearCart } = useCartStore();
-  const grouped = items.reduce<Record<string, typeof items>>((groups, item) => {
+  const mounted = useSyncExternalStore(() => () => undefined, () => true, () => false);
+  const safeItems = mounted ? items : [];
+  const grouped = safeItems.reduce<Record<string, typeof safeItems>>((groups, item) => {
     const key = item.buildId ?? "individual";
     (groups[key] ??= []).push(item);
     return groups;
   }, {});
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const hasPendingPrices = items.some((item) => !Number.isFinite(item.price) || item.price <= 0);
+  const itemCount = safeItems.reduce((sum, item) => sum + item.quantity, 0);
+  const hasPendingPrices = safeItems.some((item) => !Number.isFinite(item.price) || item.price <= 0);
 
-  if (!items.length) return <main className="experience-state"><div className="experience-state-card"><PackageOpen className="mx-auto text-orange-300" size={44}/><p className="eyebrow mt-5">Carrito</p><h1 className="font-display mt-3 text-4xl font-bold">Tu carrito está vacío</h1><p className="mx-auto mt-3 max-w-md text-slate-400">Explora componentes o crea una configuración guiada para empezar.</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/tienda" className="btn-primary focus-ring">Ver componentes <ArrowRight size={16}/></Link><Link href="/arma-tu-pc" className="btn-secondary focus-ring">Armar mi PC</Link></div></div></main>;
+  if (!safeItems.length) return <main className="experience-state"><div className="experience-state-card"><PackageOpen className="mx-auto text-orange-300" size={44}/><p className="eyebrow mt-5">Carrito</p><h1 className="font-display mt-3 text-4xl font-bold">Tu carrito está vacío</h1><p className="mx-auto mt-3 max-w-md text-slate-400">Explora componentes o crea una configuración guiada para empezar.</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/tienda" className="btn-primary focus-ring">Ver componentes <ArrowRight size={16}/></Link><Link href="/arma-tu-pc" className="btn-secondary focus-ring">Armar mi PC</Link></div></div></main>;
 
   return <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
     <nav className="checkout-steps" aria-label="Progreso de compra"><span className="active">1 <b>Carrito</b></span><span>2 <b>Datos</b></span><span>3 <b>Confirmación</b></span></nav>
@@ -49,7 +52,7 @@ export default function Carrito() {
         <div>{groupItems.map((item) => <article className="cart-line" key={item.id}>
           {item.image ? <div className="cart-line-media"><Image src={item.image} alt={item.name} fill className="object-contain p-2" sizes="80px"/></div> : <div className="cart-line-media cart-line-placeholder">NexoPC</div>}
           <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{item.category ?? "Componente"}</p><h2 className="mt-1 font-bold text-slate-100">{item.name}</h2><p className={`mt-2 text-lg font-extrabold ${item.price > 0 ? "text-orange-200" : "text-amber-200"}`}>{formatPrice(String(item.price))}</p>
-            <div className="mt-3 flex items-center justify-between gap-3"><div className="quantity-control"><button type="button" onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} className="focus-ring" aria-label={`Reducir ${item.name}`}><Minus size={14}/></button><span aria-label={`Cantidad ${item.quantity}`}>{item.quantity}</span><button type="button" onClick={() => updateQuantity(item.id, item.quantity + 1)} className="focus-ring" aria-label={`Aumentar ${item.name}`}><Plus size={14}/></button></div><button type="button" onClick={() => { if (window.confirm(`¿Quitar ${item.name} del carrito?`)) removeItem(item.id); }} className="cart-remove focus-ring" aria-label={`Quitar ${item.name}`}><Trash2 size={17}/><span>Quitar</span></button></div>
+            <div className="mt-3 flex items-center justify-between gap-3"><div className="quantity-control"><button type="button" disabled={item.quantity <= 1} onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} className="focus-ring disabled:opacity-35" aria-label={`Reducir ${item.name}`}><Minus size={14}/></button><span aria-label={`Cantidad ${item.quantity}`}>{item.quantity}</span><button type="button" disabled={item.quantity >= 20} onClick={() => updateQuantity(item.id, Math.min(20, item.quantity + 1))} className="focus-ring disabled:opacity-35" aria-label={`Aumentar ${item.name}`}><Plus size={14}/></button></div><button type="button" onClick={() => { if (window.confirm(`¿Quitar ${item.name} del carrito?`)) removeItem(item.id); }} className="cart-remove focus-ring" aria-label={`Quitar ${item.name}`}><Trash2 size={17}/><span>Quitar</span></button></div>
           </div>
         </article>)}</div>
       </section>)}</div>

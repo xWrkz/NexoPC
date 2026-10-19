@@ -6,10 +6,11 @@ describe("cartStore", () => {
     useCartStore.setState({ items: [] });
   });
 
-  it("agrupa el mismo producto y limita la cantidad", () => {
-    const item = { id: "cpu", productId: 1, name: "CPU", price: 500, quantity: 1 };
+  it("agrupa el mismo producto y limita la cantidad en addItem y updateQuantity", () => {
+    const item = { id: "cpu", productId: 1, name: "CPU", price: 500, quantity: 15 };
     useCartStore.getState().addItem(item);
     useCartStore.getState().addItem(item);
+    expect(useCartStore.getState().items[0].quantity).toBe(20);
     useCartStore.getState().updateQuantity("cpu", 99);
     expect(useCartStore.getState().items[0].quantity).toBe(20);
     expect(useCartStore.getState().getTotal()).toBe(10000);

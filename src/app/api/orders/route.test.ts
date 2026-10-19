@@ -39,4 +39,21 @@ describe("POST /api/orders", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ ok: false });
   });
+
+  it("suma cantidades de líneas duplicadas del mismo producto para impedir sobrepasar el stock", async () => {
+    process.env.NEXT_PUBLIC_WORDPRESS_URL = "https://woo.test";
+    process.env.WC_CONSUMER_KEY = "key";
+    process.env.WC_CONSUMER_SECRET = "secret";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 11, name: "CPU", stock_status: "instock", stock_quantity: 1, manage_stock: true }), { status: 200 })));
+    const duplicateLinesBody = {
+      ...requestBody,
+      items: [
+        { productId: 11, quantity: 1 },
+        { productId: 11, quantity: 1 },
+      ],
+    };
+    const response = await POST(new Request("http://localhost/api/orders", { method: "POST", body: JSON.stringify(duplicateLinesBody) }));
+    expect(response.status).toBe(409);
+    expect((await response.json()).message).toContain("Solo quedan 1 unidades");
+  });
 });
