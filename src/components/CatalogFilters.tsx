@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, m } from "motion/react";
 import { Check, ChevronDown, ChevronUp, Filter, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
@@ -13,9 +13,10 @@ interface CatalogFiltersProps {
   tags: ProductTag[];
   usages: UsageProfile[];
   placement?: "toolbar" | "sidebar";
+  hasPrices?: boolean;
 }
 
-export default function CatalogFilters({ categories, tags, usages, placement = "toolbar" }: CatalogFiltersProps) {
+export default function CatalogFilters({ categories, tags, usages, placement = "toolbar", hasPrices = true }: CatalogFiltersProps) {
   const router = useRouter();
   const current = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -25,6 +26,7 @@ export default function CatalogFilters({ categories, tags, usages, placement = "
   const [minPrice, setMinPrice] = useState(current.get("precioMin") ?? "");
   const [maxPrice, setMaxPrice] = useState(current.get("precioMax") ?? "");
   const firstSearchRender = useRef(true);
+  const [isPending, startTransition] = useTransition();
 
   const urlQuery = current.get("q") ?? "";
   const urlMinPrice = current.get("precioMin") ?? "";
@@ -56,7 +58,9 @@ export default function CatalogFilters({ categories, tags, usages, placement = "
     params.delete("after");
     update(params);
     const href = params.size ? `/tienda?${params.toString()}` : "/tienda";
-    if (replace) router.replace(href, { scroll: false }); else router.push(href, { scroll: false });
+    startTransition(() => {
+      if (replace) router.replace(href, { scroll: false }); else router.push(href, { scroll: false });
+    });
   };
 
   const setSingle = (key: string, value: string) => navigate((params) => {
@@ -141,7 +145,7 @@ export default function CatalogFilters({ categories, tags, usages, placement = "
     setMaxPrice("");
     setFilterQuery("");
     setShowAllTags(false);
-    router.push("/tienda", { scroll: false });
+    startTransition(() => router.push("/tienda", { scroll: false }));
   };
 
   const taxonomySearch = <div className="filter-search-wrap">
@@ -169,20 +173,23 @@ export default function CatalogFilters({ categories, tags, usages, placement = "
       return <button type="button" key={tag.id} onClick={() => toggle("etiqueta", tag.slug)} aria-pressed={checked} className={`filter-chip ${checked ? "filter-chip-active" : ""}`}>{tag.name}<span className="opacity-55">{tag.count ?? 0}</span></button>;
     })}</div>{!filterQuery && (hiddenTagCount > 0 || showAllTags) ? <button type="button" className="filter-expand focus-ring" onClick={() => setShowAllTags((value) => !value)}>{showAllTags ? "Ver menos" : `Ver ${hiddenTagCount} más`}<ChevronDown size={14} className={showAllTags ? "rotate-180" : ""}/></button> : null}</fieldset> : null}
 
-    <fieldset><legend className="filter-title">Rango de precio</legend><div className="mt-3 grid grid-cols-2 gap-2"><div className="price-field"><span>Desde</span><div className="price-stepper-wrap"><span className="price-currency">S/</span><input type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} onBlur={(event) => setSingle("precioMin", event.target.value)} onKeyDown={handlePriceKeyDown("precioMin", minPrice)} placeholder="0" aria-label="Precio mínimo"/><div className="price-stepper-actions"><button type="button" onClick={() => handleStepPrice("min", 50)} className="stepper-arrow-btn" aria-label="Aumentar precio mínimo en 50"><ChevronUp size={11}/></button><button type="button" onClick={() => handleStepPrice("min", -50)} className="stepper-arrow-btn" aria-label="Disminuir precio mínimo en 50"><ChevronDown size={11}/></button></div></div></div><div className="price-field"><span>Hasta</span><div className="price-stepper-wrap"><span className="price-currency">S/</span><input type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} onBlur={(event) => setSingle("precioMax", event.target.value)} onKeyDown={handlePriceKeyDown("precioMax", maxPrice)} placeholder="9999" aria-label="Precio máximo"/><div className="price-stepper-actions"><button type="button" onClick={() => handleStepPrice("max", 50)} className="stepper-arrow-btn" aria-label="Aumentar precio máximo en 50"><ChevronUp size={11}/></button><button type="button" onClick={() => handleStepPrice("max", -50)} className="stepper-arrow-btn" aria-label="Disminuir precio máximo en 50"><ChevronDown size={11}/></button></div></div></div></div></fieldset>
+    {hasPrices ? <fieldset><legend className="filter-title">Rango de precio</legend><div className="mt-3 grid grid-cols-2 gap-2"><div className="price-field"><span>Desde</span><div className="price-stepper-wrap"><span className="price-currency">S/</span><input type="number" inputMode="numeric" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} onBlur={(event) => setSingle("precioMin", event.target.value)} onKeyDown={handlePriceKeyDown("precioMin", minPrice)} placeholder="0" aria-label="Precio mínimo"/><div className="price-stepper-actions"><button type="button" onClick={() => handleStepPrice("min", 50)} className="stepper-arrow-btn" aria-label="Aumentar precio mínimo en 50"><ChevronUp size={11}/></button><button type="button" onClick={() => handleStepPrice("min", -50)} className="stepper-arrow-btn" aria-label="Disminuir precio mínimo en 50"><ChevronDown size={11}/></button></div></div></div><div className="price-field"><span>Hasta</span><div className="price-stepper-wrap"><span className="price-currency">S/</span><input type="number" inputMode="numeric" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} onBlur={(event) => setSingle("precioMax", event.target.value)} onKeyDown={handlePriceKeyDown("precioMax", maxPrice)} placeholder="9999" aria-label="Precio máximo"/><div className="price-stepper-actions"><button type="button" onClick={() => handleStepPrice("max", 50)} className="stepper-arrow-btn" aria-label="Aumentar precio máximo en 50"><ChevronUp size={11}/></button><button type="button" onClick={() => handleStepPrice("max", -50)} className="stepper-arrow-btn" aria-label="Disminuir precio máximo en 50"><ChevronDown size={11}/></button></div></div></div></div></fieldset> : null}
 
-    <fieldset><legend className="filter-title">Disponibilidad</legend><div className="mt-3 grid gap-2"><CustomSelect value={current.get("stock") ?? ""} onChange={(val) => setSingle("stock", val)} ariaLabel="Filtrar por disponibilidad" options={[{ value: "", label: "Todo el catálogo" }, { value: "in-stock", label: "Disponible" }, { value: "out-of-stock", label: "Agotado" }]} /><button type="button" onClick={() => setSingle("oferta", current.get("oferta") === "1" ? "" : "1")} aria-pressed={current.get("oferta") === "1"} className={`filter-option ${current.get("oferta") === "1" ? "filter-option-active" : ""}`}><span className="filter-check">{current.get("oferta") === "1" ? <Check size={12}/> : null}</span>Solo ofertas</button></div></fieldset>
+    {hasPrices ? <fieldset><legend className="filter-title">Disponibilidad</legend><div className="mt-3 grid gap-2"><CustomSelect value={current.get("stock") ?? ""} onChange={(val) => setSingle("stock", val)} ariaLabel="Filtrar por disponibilidad" options={[{ value: "", label: "Todo el catálogo" }, { value: "in-stock", label: "Disponible" }, { value: "out-of-stock", label: "Agotado" }]} /><button type="button" onClick={() => setSingle("oferta", current.get("oferta") === "1" ? "" : "1")} aria-pressed={current.get("oferta") === "1"} className={`filter-option ${current.get("oferta") === "1" ? "filter-option-active" : ""}`}><span className="filter-check">{current.get("oferta") === "1" ? <Check size={12}/> : null}</span>Solo ofertas</button></div></fieldset> : null}
   </div>;
 
-  if (placement === "sidebar") return <aside className="catalog-sidebar" aria-label="Filtros del catálogo"><div className="catalog-sidebar-head"><div className="flex items-center justify-between"><div><p className="eyebrow">Encuentra tu componente</p><h2 className="mt-1 text-lg font-bold">Filtros</h2></div>{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</div></div><div className="catalog-sidebar-scroll">{controls}{activeCount ? <button type="button" onClick={clearAll} className="btn-secondary focus-ring mt-7 w-full"><X size={15}/>Limpiar filtros</button> : null}</div></aside>;
+  const progress = isPending ? <span className="catalog-progress" role="status" aria-label="Actualizando resultados"/> : null;
+
+  if (placement === "sidebar") return <aside className="catalog-sidebar" aria-label="Filtros del catálogo">{progress}<div className="catalog-sidebar-head"><div className="flex items-center justify-between"><div><p className="eyebrow">Encuentra tu componente</p><h2 className="mt-1 text-lg font-bold">Filtros</h2></div>{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</div></div><div className="catalog-sidebar-scroll">{controls}{activeCount ? <button type="button" onClick={clearAll} className="btn-secondary focus-ring mt-7 w-full"><X size={15}/>Limpiar filtros</button> : null}</div></aside>;
 
   const stockParam = current.get("stock");
   const stockLabel = stockParam === "in-stock" ? "Disponible" : stockParam === "out-of-stock" ? "Agotado" : null;
 
   return <>
+    {progress}
     <div className="catalog-toolbar flex items-center gap-3">
-      <form onSubmit={submit} className="relative min-w-0 flex-1 flex items-center"><Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cyan-300/70" size={18}/><input name="q" className="field field-search h-12 !pl-12 w-full" style={{ paddingLeft: "3rem" }} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca por nombre, marca o SKU…" aria-label="Buscar en catálogo"/>{query ? <button type="button" onClick={() => { setQuery(""); setSingle("q", ""); }} className="focus-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 hover:text-white" aria-label="Borrar búsqueda"><X size={16}/></button> : null}</form>
-      <CustomSelect value={current.get("orden") ?? "featured"} onChange={(val) => setSingle("orden", val)} ariaLabel="Ordenar productos" className="w-full sm:w-52 shrink-0" options={[{ value: "featured", label: "Recomendados" }, { value: "newest", label: "Más recientes" }, { value: "price-asc", label: "Menor precio" }, { value: "price-desc", label: "Mayor precio" }, { value: "name", label: "Nombre A–Z" }]} />
+      <form onSubmit={submit} className="relative min-w-0 flex-1 flex items-center"><Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cyan-300/70" size={18}/><input name="q" type="search" enterKeyHint="search" className="field field-search h-12 !pl-12 w-full" style={{ paddingLeft: "3rem" }} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca por nombre o marca…" aria-label="Buscar en catálogo"/>{query ? <button type="button" onClick={() => { setQuery(""); setSingle("q", ""); }} className="focus-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 hover:text-white" aria-label="Borrar búsqueda"><X size={16}/></button> : null}</form>
+      <CustomSelect value={current.get("orden") ?? "featured"} onChange={(val) => setSingle("orden", val)} ariaLabel="Ordenar productos" className="w-full sm:w-52 shrink-0" options={[{ value: "featured", label: "Recomendados" }, { value: "newest", label: "Más recientes" }, ...(hasPrices ? [{ value: "price-asc", label: "Menor precio" }, { value: "price-desc", label: "Mayor precio" }] : []), { value: "name", label: "Nombre A–Z" }]} />
       <button type="button" onClick={() => setOpen(true)} className="catalog-mobile-filter focus-ring shrink-0 h-12"><SlidersHorizontal size={18}/>Filtros{activeCount ? <span className="filter-badge">{activeCount}</span> : null}</button>
     </div>
 

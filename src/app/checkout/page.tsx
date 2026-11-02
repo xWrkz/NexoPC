@@ -94,7 +94,7 @@ export default function Checkout() {
                   <span className="font-bold text-orange-400">{item.quantity}×</span> {item.name}
                 </p>
                 {item.category ? (
-                  <span className="block text-[10px] uppercase tracking-wider text-slate-500">
+                  <span className="block text-xs uppercase tracking-wider text-slate-500">
                     {item.category}
                   </span>
                 ) : null}

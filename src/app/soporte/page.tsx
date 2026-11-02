@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, Clock, Mail, MapPin, MessageSquare, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Soporte y Contacto — NexoPC",
+  title: "Soporte y contacto",
   description: "Comunícate con el equipo técnico de NexoPC en Trujillo para asesoría de compatibilidad, estado de pedidos y soporte postventa.",
 };
 

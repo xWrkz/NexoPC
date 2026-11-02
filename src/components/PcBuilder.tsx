@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Copy, Cpu, Gauge, HardDrive, Info, Layers, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -9,6 +9,7 @@ import { Product } from "@/types/product";
 import { BuilderCategory, ComponentePC, ComponentSpecs, validarCompatibilidad } from "@/lib/compatibility/rules";
 import { useBuilderStore } from "@/store/builderStore";
 import { useCartStore } from "@/store/cartStore";
+import { getProductHighlights } from "@/lib/catalog/highlights";
 import { getPriceValue, hasValidPrice } from "@/lib/utils/price";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import ProductPlaceholder from "@/components/ProductPlaceholder";
@@ -346,9 +347,11 @@ function getProductRecommendation(
 
 export default function PcBuilder({ products }: { products: Product[] }) {
   const params = useSearchParams();
+  const router = useRouter();
   const reduce = useReducedMotion();
   const initialMode = params.get("modo") === "guiado" ? "guided" : "advanced";
   const urlGoal = params.get("uso");
+  const urlPiece = params.get("pieza");
   const {
     activeGoal,
     seleccion,
@@ -404,6 +407,15 @@ export default function PcBuilder({ products }: { products: Product[] }) {
       if (current && !products.some((product) => product.id === current.id)) setComponente(key, null, goal);
     });
   }, [products, seleccion, setComponente, goal]);
+
+  useEffect(() => {
+    if (!urlPiece) return;
+    const product = products.find((item) => item.slug === urlPiece);
+    const category = product && productCategory(product);
+    if (product && category) setComponente(category, toComponent(product, category), goal);
+    // La pieza ya pasó a la selección: sin el parámetro, recargar no la vuelve a añadir.
+    router.replace("/arma-tu-pc", { scroll: false });
+  }, [urlPiece, products, goal, router, setComponente]);
 
   const addItem = useCartStore((state) => state.addItem);
   const selected = Object.values(seleccion).filter(Boolean) as ComponentePC[];
@@ -463,6 +475,10 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   }, [options, activeCategory, onlyCompatible, onlyRecommended, checkCompatibility, seleccion, mode, goal]);
   const unclassified = products.filter((product) => !productCategory(product)).length;
   const pendingPrices = selected.filter((item) => item.precio <= 0).length;
+  const issueCount = result.errors.length + result.warnings.length;
+  const buildStatus = result.errors.length ? `${result.errors.length} ${result.errors.length === 1 ? "incompatibilidad" : "incompatibilidades"}`
+    : result.warnings.length ? `${result.warnings.length} por confirmar`
+      : selected.length ? "Sin conflictos por ahora" : "Elige una pieza para empezar";
 
   const choose = (product: Product) => {
     if (!activeCategory) return;
@@ -537,7 +553,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
                       <span>{item.label}</span>
                       {pieceCount > 0 ? (
                         <span
-                          className={`ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          className={`ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 py-0.2 text-xs font-bold ${
                             goal === item.id
                               ? "bg-orange-500/30 text-orange-200"
                               : "bg-white/10 text-slate-300"
@@ -551,14 +567,16 @@ export default function PcBuilder({ products }: { products: Product[] }) {
                 })}
               </div></div><label className="builder-budget"><span>2. Presupuesto aproximado</span><div className="builder-budget-wrap"><span>S/</span><input type="number" min="0" step="100" value={budget ?? ""} onChange={(event) => setBudget(event.target.value ? Number(event.target.value) : undefined)} placeholder="Ej. 3000"/><div className="price-stepper-actions"><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) + 100))} className="stepper-arrow-btn" aria-label="Aumentar presupuesto en 100"><ChevronUp size={12}/></button><button type="button" onClick={() => setBudget((b) => Math.max(0, (b ?? 3000) - 100))} className="stepper-arrow-btn" aria-label="Disminuir presupuesto en 100"><ChevronDown size={12}/></button></div></div><small>Lo usaremos como referencia; no ocultaremos piezas por precio.</small></label></m.section> : null}</AnimatePresence>
 
-    <div className="builder-workspace"><aside className="builder-steps"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black uppercase tracking-[.16em] text-slate-500">Componentes</span><strong className="text-sm text-cyan-200">{selected.length}/{steps.length}</strong></div>{steps.map((step, index) => { const current = seleccion[step.key]; const available = optionsByCategory[step.key].length; const Icon = step.icon; return <button type="button" key={step.key} onClick={() => setActiveCategory(step.key)} className={`builder-step focus-ring ${current ? "builder-step-complete" : ""} ${activeCategory === step.key ? "builder-step-active" : ""}`}><span className="builder-step-number">{current ? <Check size={14}/> : index + 1}</span><Icon size={17}/><span className="min-w-0 flex-1 text-left"><strong>{step.label}</strong><small>{current ? current.nombre : available ? `${available} ${available === 1 ? "opción" : "opciones"}` : "Sin ficha técnica"}</small></span><ChevronRight size={15}/></button>; })}{unclassified ? <p className="mt-4 flex gap-2 rounded-xl border border-amber-300/12 bg-amber-300/5 p-3 text-[11px] leading-5 text-amber-100/70"><Info size={14} className="mt-0.5 shrink-0"/>{unclassified} {unclassified === 1 ? "producto aún no tiene" : "productos aún no tienen"} tipo de componente y ficha técnica; no aparecerán en el armador hasta completarlos.</p> : null}</aside>
+    <div className="builder-workspace"><aside className="builder-steps"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black uppercase tracking-[.16em] text-slate-400">Componentes</span><strong className="text-sm text-cyan-200">{selected.length}/{steps.length}</strong></div>{steps.map((step, index) => { const current = seleccion[step.key]; const available = optionsByCategory[step.key].length; const Icon = step.icon; return <button type="button" key={step.key} onClick={() => setActiveCategory(step.key)} className={`builder-step focus-ring ${current ? "builder-step-complete" : ""} ${activeCategory === step.key ? "builder-step-active" : ""}`}><span className="builder-step-number">{current ? <Check size={14}/> : index + 1}</span><Icon size={17}/><span className="min-w-0 flex-1 text-left"><strong>{step.label}</strong><small>{current ? current.nombre : available ? `${available} ${available === 1 ? "opción" : "opciones"}` : "Sin ficha técnica"}</small></span><ChevronRight size={15}/></button>; })}{unclassified ? <p className="mt-4 flex gap-2 rounded-xl border border-amber-300/12 bg-amber-300/5 p-3 text-xs leading-5 text-amber-100/70"><Info size={14} className="mt-0.5 shrink-0"/>{unclassified} {unclassified === 1 ? "producto aún no tiene" : "productos aún no tienen"} tipo de componente y ficha técnica; no aparecerán en el armador hasta completarlos.</p> : null}</aside>
 
-      <section className="builder-stage"><div className="builder-stage-header"><div><p className="eyebrow">Vista de tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">Tu equipo toma forma aquí.</h2></div><div className="builder-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}%</span></div></div><div className="pc-chassis"><div className="tech-grid absolute inset-0 opacity-50"/><span className="pc-energy-line"/><Image src="/brand/icon-mark.webp" width={110} height={73} alt="" className="pc-brand-mark"/><div className="pc-slot-grid">{steps.map((step, index) => { const item = seleccion[step.key]; const Icon = step.icon; return <m.button type="button" layout key={step.key} onClick={() => setActiveCategory(step.key)} className={`pc-slot focus-ring ${item ? "pc-slot-filled" : ""}`} initial={false} animate={item && !reduce ? { scale: [1, 1.06, 1] } : {}} transition={{ duration: .45 }}><span className="pc-slot-icon"><Icon size={18}/></span><span><small>{step.short}</small><strong>{item ? item.nombre : "Pendiente"}</strong></span>{item ? <CheckCircle2 size={16} className="ml-auto text-emerald-300"/> : <Plus size={15} className="ml-auto text-slate-600"/>}<span className="pc-slot-order">0{index + 1}</span></m.button>; })}</div></div><div className="builder-stage-tip"><CircleHelp size={17}/><span><strong>{mode === "guided" ? `Modo guiado: ${goals.find((item) => item.id === goal)?.label}` : "Modo avanzado"}.</strong> Selecciona cualquier módulo para comparar componentes del catálogo.</span></div></section>
+      <section className="builder-stage"><div className="builder-stage-header"><div><p className="eyebrow">Vista de tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">Tu equipo toma forma aquí.</h2></div><div className="builder-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}%</span></div></div><div className="pc-chassis"><div className="tech-grid absolute inset-0 opacity-50"/><span className="pc-energy-line"/><Image src="/brand/icon-mark.webp" width={110} height={73} alt="" className="pc-brand-mark"/><div className="pc-slot-grid">{steps.map((step, index) => { const item = seleccion[step.key]; const Icon = step.icon; return <m.button type="button" layout key={step.key} onClick={() => setActiveCategory(step.key)} className={`pc-slot focus-ring ${item ? "pc-slot-filled" : ""}`} initial={false} animate={item && !reduce ? { scale: [1, 1.06, 1] } : {}} transition={{ duration: .45 }}><span className="pc-slot-icon"><Icon size={18}/></span><span><small>{step.short}</small><strong>{item ? item.nombre : "Pendiente"}</strong></span>{item ? <CheckCircle2 size={16} className="ml-auto text-emerald-300"/> : <Plus size={15} className="ml-auto text-slate-600"/>}<span className="pc-slot-order">0{index + 1}</span></m.button>; })}</div></div><div className="builder-stage-tip"><CircleHelp size={17}/><span><strong>{mode === "guided" ? `Modo guiado: ${goals.find((item) => item.id === goal)?.label}` : "Modo avanzado"}.</strong> Elige cualquier pieza para comparar opciones del catálogo.</span></div></section>
 
 
-      <aside className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{formatPrice(String(item.precio))}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige un módulo del gabinete para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className="price text-2xl">S/ {total.toFixed(2)}</span></div>{budget ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length) || pendingPrices > 0} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>{pendingPrices ? "Precios por confirmar" : "Añadir configuración"}</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
+      <aside id="resumen" className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{item.precio > 0 ? formatPrice(String(item.precio)) : "Por confirmar"}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige una pieza para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className={`price ${pendingPrices ? "text-base text-amber-200" : "text-2xl"}`}>{pendingPrices ? (total > 0 ? `S/ ${total.toFixed(2)} + ${pendingPrices} por confirmar` : "Por confirmar") : `S/ ${total.toFixed(2)}`}</span></div>{budget && !pendingPrices ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length) || pendingPrices > 0} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>{pendingPrices ? "Precios por confirmar" : "Añadir configuración"}</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
 
     </div>
+
+    <a href="#resumen" className={`builder-mobile-bar focus-ring ${result.errors.length ? "builder-mobile-bar-error" : issueCount ? "builder-mobile-bar-warning" : ""}`}><span className="min-w-0"><strong>{selected.length}/{steps.length} piezas</strong><small>{buildStatus}</small></span><span className="builder-mobile-bar-action">Ver resumen<ChevronDown size={16}/></span></a>
 
     <AnimatePresence>
       {activeStep ? (
@@ -632,7 +650,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
                   </label>
                 ) : null}
               </div>
-              <span className="text-slate-500 text-[11px]">{displayedOptions.length} de {options.length} opciones</span>
+              <span className="text-slate-500 text-xs">{displayedOptions.length} de {options.length} opciones</span>
             </div>
 
             <div className="mt-4 flex flex-col gap-3 pb-10 w-full min-w-0">
@@ -642,6 +660,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
 const rec = activeCategory ? getProductRecommendation(product, activeCategory, goal) : { isRecommended: false };
                   const selectedProduct = seleccion[activeStep.key]?.id === product.id;
                   const priced = hasValidPrice(product.price);
+                  const highlights = getProductHighlights(product.nexopcHardware);
                   return (
                     <button
                       type="button"
@@ -651,51 +670,48 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                     >
                       <div className="component-choice-media shrink-0">
                         {product.image ? (
-                          <Image src={product.image.sourceUrl} alt="" fill className="object-contain p-2" sizes="(max-width: 520px) 70px, 88px" />
+                          <div className="media-tile"><Image src={product.image.sourceUrl} alt="" fill className="object-contain p-1.5" sizes="(max-width: 520px) 70px, 88px" /></div>
                         ) : (
-                          <ProductPlaceholder name={product.name} compact />
+                          <ProductPlaceholder name={product.name} category={product.productCategories?.nodes[0]} compact />
                         )}
                       </div>
                       <div className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-xs font-bold text-slate-500">
-                          {product.sku ? `SKU ${product.sku}` : activeStep.label}
-                        </span>
-                        <h3 className="mt-1 line-clamp-2 text-sm sm:text-base font-bold leading-snug text-slate-100">
+                        <h3 className="line-clamp-2 text-sm sm:text-base font-bold leading-snug text-slate-100">
                           {product.name}
                         </h3>
+                        {highlights.length ? (
+                          <span className="mt-1 block truncate text-xs font-semibold text-slate-400">{highlights.join(" · ")}</span>
+                        ) : null}
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           {selectedProduct ? (
-                            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
                               <Check size={12} className="shrink-0" />
                               <span>Seleccionado • Clic para quitar</span>
                             </span>
                           ) : compat.isCompatible ? (
-                            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
                               <Check size={12} className="shrink-0" />
                               <span>Compatible</span>
                             </span>
                           ) : (
-                            <span className="flex items-start gap-1 text-[11px] font-semibold text-rose-400">
+                            <span className="flex items-start gap-1 text-xs font-semibold text-rose-400">
                               <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                               <span className="line-clamp-2 leading-tight">Incompatible: {compat.error}</span>
                             </span>
                           )}
                           {rec.isRecommended ? (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                            <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-xs font-bold text-amber-300">
                               <Sparkles size={11} className="text-amber-400" />
                               <span>Recomendado ({goals.find((g) => g.id === goal)?.label ?? "Sugerido"})</span>
                             </span>
                           ) : null}
                         </div>
                         {rec.isRecommended && rec.reason ? (
-                          <p className="mt-1 text-[11px] text-amber-200/80 italic">{rec.reason}</p>
+                          <p className="mt-1 text-xs text-amber-200/80 italic">{rec.reason}</p>
                         ) : null}
-                        <p className={`mt-2 text-base sm:text-lg font-black ${priced ? "text-orange-300" : "text-amber-200"}`}>
+                        <p className={`mt-2 ${priced ? "text-base sm:text-lg font-black text-orange-300" : "text-xs font-semibold text-amber-200"}`}>
                           {formatPrice(product.price)}
                         </p>
-                        {!priced ? (
-                          <small className="mt-1 block text-xs text-slate-500">Puedes usarlo para planificar tu PC. El precio se confirmará más adelante.</small>
-                        ) : null}
                       </div>
                       <span className={`component-choice-action shrink-0 ${selectedProduct ? "bg-emerald-400 text-slate-950" : ""}`}>
                         {selectedProduct ? <Check size={17} /> : <Plus size={17} />}
@@ -755,7 +771,7 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                   <Layers size={22} />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400">
+                  <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
                     Cambiar objetivo de ensamble
                   </span>
                   <h3 className="text-lg font-bold text-white">
@@ -798,7 +814,7 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                               ? `Cargar ensamble guardado (${targetSavedCount} piezas)`
                               : `Nuevo ensamble para ${pendingGoalChange.targetLabel}`}
                           </span>
-                          <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                          <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-xs font-bold text-amber-300">
                             Recomendado
                           </span>
                         </div>

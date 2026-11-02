@@ -58,6 +58,18 @@ test("el armador cambia entre modo guiado y avanzado", async ({ page }) => {
   await expect(page.getByText("Presupuesto aproximado")).toBeHidden();
 });
 
+test("las páginas principales no se desbordan en horizontal", async ({ page }) => {
+  await page.goto("/tienda");
+  const product = await page.locator("article.product-card a").first().getAttribute("href");
+  for (const path of ["/", "/tienda", "/arma-tu-pc", product ?? "/tienda"]) {
+    await page.goto(path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, path).toBeLessThanOrEqual(0);
+    const clipped = await page.locator("main h1").evaluate((heading) => heading.getBoundingClientRect().right > window.innerWidth);
+    expect(clipped, path).toBe(false);
+  }
+});
+
 test("el checkout protege el flujo sin productos", async ({ page }) => {
   await page.goto("/checkout");
   await expect(page.getByText(/no hay productos por confirmar/i)).toBeVisible();
@@ -77,7 +89,7 @@ test("recorre inicio, catálogo, detalle, carrito, checkout y confirmación", as
   await page.getByRole("link", { name: /continuar con mis datos/i }).click();
   await expect(page.getByRole("heading", { name: /confirma tu pedido/i })).toBeVisible();
   await expect(page.getByLabel("Nombres*")).toBeVisible();
-  await page.goto("/confirmacion?numero=E2E-001&metodo=bacs");
+  await page.goto("/confirmacion?numero=1001&metodo=bacs");
   await expect(page.getByRole("heading", { name: /tu solicitud está en marcha/i })).toBeVisible();
-  await expect(page.getByText("#E2E-001")).toBeVisible();
+  await expect(page.getByText("#1001")).toBeVisible();
 });
