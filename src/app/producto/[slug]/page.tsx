@@ -4,6 +4,7 @@ import { CheckCircle2, ChevronRight, Package, ShieldCheck, Sparkles, Truck } fro
 import { notFound } from "next/navigation";
 import { getProductBySlug, getRelatedProducts } from "@/lib/catalog/products";
 import { formatPrice } from "@/lib/utils/formatPrice";
+import { sanitizeProductHtml } from "@/lib/utils/sanitizeHtml";
 import AddToCartButton from "@/components/AddToCartButton";
 import ProductCard from "@/components/ProductCard";
 import ProductGallery from "@/components/ProductGallery";
@@ -34,14 +35,6 @@ function extractSummaryFromDescription(html?: string): string {
   if (!html) return "";
   const match = html.match(/<p>([\s\S]*?)<\/p>/i);
   return match ? match[1].trim() : "";
-}
-
-function sanitizeSummaryHtml(html: string): string {
-  return html
-    .replace(/<(script|iframe|object|embed|form|style|link|meta)[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/<(script|iframe|object|embed|form|style|link|meta)[^>]*\/?>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(?:href|src)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi, "");
 }
 
 function stripHtmlTags(html: string): string {
@@ -79,7 +72,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parsedSpecs = parseSpecsFromDescription(product.description);
   const effectiveAttributes = product.attributes?.nodes?.length ? product.attributes.nodes : parsedSpecs;
   const rawSummary = product.shortDescription || extractSummaryFromDescription(product.description);
-  const summary = rawSummary ? sanitizeSummaryHtml(rawSummary) : "";
+  const summary = rawSummary ? sanitizeProductHtml(rawSummary) : "";
 
   return <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12"><nav className="product-breadcrumb" aria-label="Ruta del producto"><Link href="/tienda">Componentes</Link><ChevronRight size={14}/><span>{product.name}</span></nav><div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_.95fr]"><ProductGallery name={product.name} images={gallery}/><div className="product-commerce"><p className="eyebrow">{primaryCategory?.name ?? "Componente NexoPC"}</p><h1 className="font-display mt-3 text-4xl font-bold leading-tight sm:text-5xl">{product.name}</h1>{product.sku ? <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">SKU · {product.sku}</p> : null}{uses.length ? <div className="mt-4 flex flex-wrap gap-2">{uses.map((use) => <span className="signal-chip" key={use}><Sparkles size={12}/>{use}</span>)}</div> : null}<div className="mt-6 flex flex-wrap items-baseline gap-3"><p className="price text-4xl">{formatPrice(product.price)}</p>{product.salePrice && product.regularPrice ? <p className="text-lg text-slate-500 line-through">{formatPrice(product.regularPrice)}</p> : null}</div><p className={`product-availability ${product.stockStatus === "IN_STOCK" ? "available" : "unavailable"}`}><CheckCircle2 size={17}/>{product.stockStatus === "IN_STOCK" ? "Disponible para coordinar" : "Temporalmente agotado"}</p>{summary ? <div className="product-copy mt-6 max-w-xl text-sm leading-7 text-slate-300" dangerouslySetInnerHTML={{ __html: summary }}/> : null}<div className="product-purchase"><AddToCartButton product={product}/></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{services.map(({ Icon, title, text }) => <div className="service-tile" key={title}><Icon size={17} className="text-orange-300"/><p>{title}</p><small>{text}</small></div>)}</div></div></div>
 
