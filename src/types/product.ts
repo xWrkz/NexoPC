@@ -40,6 +40,17 @@ export interface NexoPcHardware {
   supportedMemoryTypeIds?: number[];
   supportedStorageInterfaceIds?: number[];
   supportedFormFactorIds?: number[];
+  supportedSocketIds?: number[];
+  integratedGraphics?: boolean | null;
+  coolerIncluded?: boolean | null;
+  ramSlots?: number | null;
+  modules?: number | null;
+  speedMts?: number | null;
+  maxRadiatorMm?: number | null;
+  coolerType?: string | null;
+  coolerHeightMm?: number | null;
+  radiatorMm?: number | null;
+  maxTdpWatts?: number | null;
   tdpWatts?: number | null;
   capacityGb?: number | null;
   gpuMemoryGb?: number | null;

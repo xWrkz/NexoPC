@@ -12,11 +12,11 @@ export const PRODUCT_FIELDS = gql`
     }
     ... on SimpleProduct {
       price regularPrice salePrice stockStatus stockQuantity
-      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts integratedGraphics coolerIncluded ramSlots modules speedMts maxRadiatorMm coolerType coolerHeightMm radiatorMm maxTdpWatts supportedSocketIds }
     }
     ... on VariableProduct {
       price regularPrice salePrice stockStatus stockQuantity
-      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+      nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts integratedGraphics coolerIncluded ramSlots modules speedMts maxRadiatorMm coolerType coolerHeightMm radiatorMm maxTdpWatts supportedSocketIds }
       variations(first: 30) { nodes { id databaseId name price regularPrice stockStatus image { sourceUrl altText } } }
     }
   }
@@ -45,7 +45,7 @@ export const GET_PRODUCTS = gql`
 export const GET_RELATED_PRODUCTS = gql`
   ${PRODUCT_FIELDS}
   query GetRelatedProducts($category: String!, $first: Int = 6) {
-    products(first: $first, where: { category: $category }) {
+    products(first: $first, where: { category: $category, status: "publish" }) {
       nodes { ...ProductFields }
     }
   }
@@ -58,7 +58,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
 
 export const GET_BUILDER_CATEGORY_PRODUCTS = gql`
   query GetBuilderCategoryProducts($category: String, $first: Int = 100) {
-    products(first: $first, where: { category: $category }) {
+    products(first: $first, where: { category: $category, status: "publish" }) {
       nodes {
         id
         databaseId
@@ -70,11 +70,11 @@ export const GET_BUILDER_CATEGORY_PRODUCTS = gql`
         productCategories { nodes { id databaseId name slug count } }
         ... on SimpleProduct {
           price regularPrice salePrice stockStatus stockQuantity
-          nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+          nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts integratedGraphics coolerIncluded ramSlots modules speedMts maxRadiatorMm coolerType coolerHeightMm radiatorMm maxTdpWatts supportedSocketIds }
         }
         ... on VariableProduct {
           price regularPrice salePrice stockStatus stockQuantity
-          nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts }
+          nexopcHardware { componentTypeSlug componentTypeName socketId memoryTypeId formFactorId storageInterfaceId storageInterfaceSlug supportedMemoryTypeIds supportedStorageInterfaceIds supportedFormFactorIds tdpWatts capacityGb gpuMemoryGb gpuLengthMm gpuSlots recommendedPsuWatts maxGpuLengthMm maxCoolerHeightMm bays25 bays35 continuousWatts m2Slots sataPorts integratedGraphics coolerIncluded ramSlots modules speedMts maxRadiatorMm coolerType coolerHeightMm radiatorMm maxTdpWatts supportedSocketIds }
           variations(first: 30) { nodes { id databaseId name price regularPrice stockStatus image { sourceUrl altText } } }
         }
       }

@@ -188,7 +188,7 @@ function extractHardwareFromDescription(name: string, html?: string, category?: 
     return {
       tdpWatts: parsedTdp,
       gpuLengthMm,
-      recommendedPsuWatts: recPsuMatch ? parseInt(recPsuMatch[1], 10) : parsedTdp ? parsedTdp + 300 : undefined,
+      recommendedPsuWatts: recPsuMatch ? parseInt(recPsuMatch[1], 10) : undefined,
     };
   }
 
@@ -214,8 +214,6 @@ function extractHardwareFromDescription(name: string, html?: string, category?: 
     return {
       supportedFormFactorIds,
       maxGpuLengthMm,
-      bays25: 2,
-      bays35: 2,
     };
   }
 
@@ -254,6 +252,16 @@ function toComponent(product: Product, category: BuilderCategory): ComponentePC 
       sataPorts: nonZero(specs?.sataPorts),
       bays25: nonZero(specs?.bays25) ?? descSpecs.bays25,
       bays35: nonZero(specs?.bays35) ?? descSpecs.bays35,
+      integratedGraphics: specs?.integratedGraphics ?? undefined,
+      coolerIncluded: specs?.coolerIncluded ?? undefined,
+      ramSlots: nonZero(specs?.ramSlots),
+      modules: nonZero(specs?.modules),
+      maxRadiatorMm: nonZero(specs?.maxRadiatorMm),
+      coolerType: specs?.coolerType ?? undefined,
+      coolerHeightMm: nonZero(specs?.coolerHeightMm),
+      radiatorMm: nonZero(specs?.radiatorMm),
+      maxTdpWatts: nonZero(specs?.maxTdpWatts),
+      supportedSocketIds: nonEmpty(specs?.supportedSocketIds),
     },
   };
 }
@@ -270,15 +278,15 @@ function getProductRecommendation(
   const isRyzen5or7 = name.includes("ryzen 5") || name.includes("ryzen 7");
   const isRyzen9orCoreI9 = name.includes("ryzen 9") || name.includes("i9") || name.includes("ultra 9");
   const isCoreI5orI7 = name.includes("i5") || name.includes("i7") || name.includes("ultra 5") || name.includes("ultra 7");
-  const isCoreI3orEntry = name.includes("i3") || name.includes("3200g") || name.includes("3400g") || name.includes("4600g") || name.includes("5600g");
+  const isCoreI3orEntry = name.includes("i3") || name.includes("5500") || name.includes("8400f") || name.includes("8500g") || name.includes("5700g") || name.includes("3200g") || name.includes("3400g") || name.includes("4600g") || name.includes("5600g");
 
   const is32Gb = name.includes("32gb") || name.includes("2x16gb");
   const is16Gb = name.includes("16gb") || name.includes("2x8gb");
   const is64Gb = name.includes("64gb") || name.includes("2x32gb");
 
-  const isMidHighGpu = name.includes("4070") || name.includes("4060 ti") || name.includes("7700") || name.includes("7800") || name.includes("6700");
+  const isMidHighGpu = name.includes("5070") || name.includes("5060 ti") || name.includes("9070") || name.includes("9060 xt") || name.includes("4070") || name.includes("4060 ti") || name.includes("7700") || name.includes("7800") || name.includes("6700");
   const isTopGpu = name.includes("4080") || name.includes("4090") || name.includes("7900") || name.includes("5080") || name.includes("5090");
-  const isEntryMidGpu = name.includes("4060") || name.includes("3060") || name.includes("7600") || name.includes("6600");
+  const isEntryMidGpu = name.includes("3050") || name.includes("5050") || name.includes("5060") || name.includes("9060") || name.includes("4060") || name.includes("3060") || name.includes("7600") || name.includes("6600");
 
   const isNvme1Tb = (name.includes("1tb") || name.includes("1000gb")) && (name.includes("nvme") || name.includes("m.2"));
   const isNvme2Tb = (name.includes("2tb") || name.includes("2000gb")) && (name.includes("nvme") || name.includes("m.2"));
@@ -295,7 +303,7 @@ function getProductRecommendation(
       if (category === "ram" && (is16Gb || is32Gb)) return { isRecommended: true, reason: "Capacidad y velocidad óptimas para juegos modernos" };
       if (category === "storage" && (isNvme1Tb || isNvme2Tb)) return { isRecommended: true, reason: "Carga rápida de mapas y texturas pesadas" };
       if (category === "psu" && (isPsu650_750 || isPsu850Plus)) return { isRecommended: true, reason: "Potencia estable con margen para tarjeta gráfica" };
-      if (category === "motherboard" && (name.includes("b650") || name.includes("b760") || name.includes("gaming") || name.includes("tuf") || name.includes("aorus"))) return { isRecommended: true, reason: "Chipset balanceado con soporte PCIe veloz" };
+      if (category === "motherboard" && (name.includes("b650") || name.includes("b850") || name.includes("b760") || name.includes("b860") || name.includes("gaming") || name.includes("tuf") || name.includes("aorus"))) return { isRecommended: true, reason: "Chipset balanceado con soporte PCIe veloz" };
       if (category === "case" && (name.includes("mesh") || name.includes("flow") || name.includes("air") || name.includes("rgb"))) return { isRecommended: true, reason: "Flujo de aire optimizado para mantener bajas temperaturas" };
       if (category === "cooler" && (name.includes("liquid") || name.includes("240") || name.includes("360") || name.includes("peerless") || name.includes("ak620"))) return { isRecommended: true, reason: "Disipación térmica constante durante sesiones intensas" };
       break;
@@ -389,6 +397,14 @@ export default function PcBuilder({ products }: { products: Product[] }) {
       };
     }
   }, [activeCategory, pendingGoalChange]);
+  useEffect(() => {
+    if (!products.length) return;
+    steps.forEach(({ key }) => {
+      const current = seleccion[key];
+      if (current && !products.some((product) => product.id === current.id)) setComponente(key, null, goal);
+    });
+  }, [products, seleccion, setComponente, goal]);
+
   const addItem = useCartStore((state) => state.addItem);
   const selected = Object.values(seleccion).filter(Boolean) as ComponentePC[];
   const progress = Math.round((selected.length / steps.length) * 100);
@@ -449,7 +465,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
   const pendingPrices = selected.filter((item) => item.precio <= 0).length;
 
   const choose = (product: Product) => {
-    if (!activeCategory || !hasValidPrice(product.price)) return;
+    if (!activeCategory) return;
     const current = seleccion[activeCategory];
     if (current && current.id === product.id) {
       setComponente(activeCategory, null, goal);
@@ -540,7 +556,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
       <section className="builder-stage"><div className="builder-stage-header"><div><p className="eyebrow">Vista de tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">Tu equipo toma forma aquí.</h2></div><div className="builder-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}%</span></div></div><div className="pc-chassis"><div className="tech-grid absolute inset-0 opacity-50"/><span className="pc-energy-line"/><Image src="/brand/icon-mark.webp" width={110} height={73} alt="" className="pc-brand-mark"/><div className="pc-slot-grid">{steps.map((step, index) => { const item = seleccion[step.key]; const Icon = step.icon; return <m.button type="button" layout key={step.key} onClick={() => setActiveCategory(step.key)} className={`pc-slot focus-ring ${item ? "pc-slot-filled" : ""}`} initial={false} animate={item && !reduce ? { scale: [1, 1.06, 1] } : {}} transition={{ duration: .45 }}><span className="pc-slot-icon"><Icon size={18}/></span><span><small>{step.short}</small><strong>{item ? item.nombre : "Pendiente"}</strong></span>{item ? <CheckCircle2 size={16} className="ml-auto text-emerald-300"/> : <Plus size={15} className="ml-auto text-slate-600"/>}<span className="pc-slot-order">0{index + 1}</span></m.button>; })}</div></div><div className="builder-stage-tip"><CircleHelp size={17}/><span><strong>{mode === "guided" ? `Modo guiado: ${goals.find((item) => item.id === goal)?.label}` : "Modo avanzado"}.</strong> Selecciona cualquier módulo para comparar componentes del catálogo.</span></div></section>
 
 
-      <aside className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{formatPrice(String(item.precio))}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige un módulo del gabinete para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className="price text-2xl">S/ {total.toFixed(2)}</span></div>{budget ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length)} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>Añadir configuración</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
+      <aside className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{formatPrice(String(item.precio))}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige un módulo del gabinete para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className="price text-2xl">S/ {total.toFixed(2)}</span></div>{budget ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length) || pendingPrices > 0} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>{pendingPrices ? "Precios por confirmar" : "Añadir configuración"}</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
 
     </div>
 
@@ -631,8 +647,7 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                       type="button"
                       key={product.id}
                       onClick={() => choose(product)}
-                      disabled={!priced}
-                      className={`component-choice focus-ring w-full min-w-0 text-left ${selectedProduct ? "component-choice-selected" : ""} ${!priced ? "component-choice-disabled" : ""} ${rec.isRecommended && !selectedProduct ? "border-amber-400/40 bg-amber-400/[0.02]" : ""}`}
+                      className={`component-choice focus-ring w-full min-w-0 text-left ${selectedProduct ? "component-choice-selected" : ""} ${rec.isRecommended && !selectedProduct ? "border-amber-400/40 bg-amber-400/[0.02]" : ""}`}
                     >
                       <div className="component-choice-media shrink-0">
                         {product.image ? (
@@ -679,11 +694,11 @@ const rec = activeCategory ? getProductRecommendation(product, activeCategory, g
                           {formatPrice(product.price)}
                         </p>
                         {!priced ? (
-                          <small className="mt-1 block text-xs text-slate-500">Disponible para consulta en su ficha.</small>
+                          <small className="mt-1 block text-xs text-slate-500">Puedes usarlo para planificar tu PC. El precio se confirmará más adelante.</small>
                         ) : null}
                       </div>
                       <span className={`component-choice-action shrink-0 ${selectedProduct ? "bg-emerald-400 text-slate-950" : ""}`}>
-                        {selectedProduct ? <Check size={17} /> : priced ? <Plus size={17} /> : <CircleHelp size={17} />}
+                        {selectedProduct ? <Check size={17} /> : <Plus size={17} />}
                       </span>
                     </button>
                   );

@@ -1,5 +1,6 @@
 import { z } from "zod";
-const text = z.string().trim().min(2, "Completa este campo.").max(120, "El valor es demasiado largo.");
+export const MAX_ORDER_LINES = 50;
+const text =z.string().trim().min(2, "Completa este campo.").max(120, "El valor es demasiado largo.");
 export const orderSchema = z.object({
   items: z
     .array(
@@ -9,7 +10,8 @@ export const orderSchema = z.object({
         quantity: z.number().int().min(1).max(20, "Máximo 20 unidades por producto."),
       })
     )
-    .min(1, "Tu carrito está vacío."),
+    .min(1, "Tu carrito está vacío.")
+    .max(MAX_ORDER_LINES, `Tu pedido no puede tener más de ${MAX_ORDER_LINES} productos distintos.`),
   paymentMethod: z.enum(["bacs", "cod"]),
   customer: z.object({
     firstName: text,
