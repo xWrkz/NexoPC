@@ -18,6 +18,16 @@ export interface ComponentSpecs {
   sataPorts?: number;
   bays25?: number;
   bays35?: number;
+  integratedGraphics?: boolean | null;
+  coolerIncluded?: boolean | null;
+  ramSlots?: number;
+  modules?: number;
+  maxRadiatorMm?: number;
+  coolerType?: string | null;
+  coolerHeightMm?: number;
+  radiatorMm?: number;
+  maxTdpWatts?: number;
+  supportedSocketIds?: number[];
 }
 export interface ComponentePC {
   id: string;
@@ -46,7 +56,7 @@ function missing(message: string, values: unknown[]) {
 export function validarCompatibilidad(componentes: Record<BuilderCategory, ComponentePC | null>): CompatibilityResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const { cpu, motherboard, ram, gpu, storage, psu, case: gabinete } = componentes;
+  const { cpu, motherboard, ram, gpu, storage, psu, case: gabinete, cooler } = componentes;
 
   if (cpu && motherboard) {
     const incomplete = missing("No pudimos confirmar el socket entre CPU y placa madre.", [cpu.specs.socketId, motherboard.specs.socketId]);
@@ -60,9 +70,46 @@ export function validarCompatibilidad(componentes: Record<BuilderCategory, Compo
     else if (!includes(motherboard.specs.supportedMemoryTypeIds, ram.specs.memoryTypeId)) errors.push("El tipo de memoria RAM no es compatible con la placa madre.");
   }
 
-  if (cpu && ram && cpu.specs.memoryTypeId && ram.specs.memoryTypeId) {
-    if (cpu.specs.memoryTypeId !== ram.specs.memoryTypeId) {
+  if (cpu && ram && ram.specs.memoryTypeId) {
+    const supported = cpu.specs.supportedMemoryTypeIds?.length ? cpu.specs.supportedMemoryTypeIds : cpu.specs.memoryTypeId ? [cpu.specs.memoryTypeId] : [];
+    if (supported.length && !supported.includes(ram.specs.memoryTypeId)) {
       errors.push("El tipo de memoria RAM no es compatible con el controlador de memoria del procesador.");
+    }
+  }
+
+  if (ram && motherboard && ram.specs.modules && motherboard.specs.ramSlots && ram.specs.modules > motherboard.specs.ramSlots) {
+    errors.push(`La memoria trae ${ram.specs.modules} módulos y la placa madre solo tiene ${motherboard.specs.ramSlots} ranuras.`);
+  }
+
+  if (cpu && !gpu && cpu.specs.integratedGraphics === false) {
+    warnings.push("Este procesador no tiene gráficos integrados: necesitas una tarjeta gráfica para tener video.");
+  }
+
+  if (cpu && !cooler && cpu.specs.coolerIncluded === false) {
+    warnings.push("Este procesador no incluye disipador: añade refrigeración.");
+  }
+
+  if (cooler && cpu) {
+    const incomplete = missing("No pudimos confirmar el socket entre la refrigeración y el procesador.", [cooler.specs.supportedSocketIds, cpu.specs.socketId]);
+    if (incomplete) warnings.push(incomplete);
+    else if (!includes(cooler.specs.supportedSocketIds, cpu.specs.socketId)) errors.push("La refrigeración no es compatible con el socket del procesador.");
+
+    if (cooler.specs.maxTdpWatts && cpu.specs.tdpWatts && cpu.specs.tdpWatts > cooler.specs.maxTdpWatts) {
+      warnings.push(`El procesador tiene ${cpu.specs.tdpWatts} W de TDP y esta refrigeración declara hasta ${cooler.specs.maxTdpWatts} W.`);
+    }
+  }
+
+  if (cooler && gabinete) {
+    if (cooler.specs.coolerType === "liquido") {
+      const incomplete = missing("No pudimos confirmar si el radiador cabe en el gabinete.", [cooler.specs.radiatorMm, gabinete.specs.maxRadiatorMm]);
+      if (incomplete) warnings.push(incomplete);
+      else if ((cooler.specs.radiatorMm || 0) > (gabinete.specs.maxRadiatorMm || 0))
+        errors.push(`El radiador de ${cooler.specs.radiatorMm} mm supera los ${gabinete.specs.maxRadiatorMm} mm que admite el gabinete.`);
+    } else {
+      const incomplete = missing("No pudimos confirmar si el disipador cabe en el gabinete.", [cooler.specs.coolerHeightMm, gabinete.specs.maxCoolerHeightMm]);
+      if (incomplete) warnings.push(incomplete);
+      else if ((cooler.specs.coolerHeightMm || 0) > (gabinete.specs.maxCoolerHeightMm || 0))
+        errors.push(`El disipador mide ${cooler.specs.coolerHeightMm} mm y supera los ${gabinete.specs.maxCoolerHeightMm} mm del gabinete.`);
     }
   }
 
@@ -100,6 +147,10 @@ export function validarCompatibilidad(componentes: Record<BuilderCategory, Compo
       errors.push(`La GPU requiere una fuente recomendada de ${gpu.specs.recommendedPsuWatts} W y la fuente seleccionada entrega ${psu.specs.continuousWatts} W.`);
   } else if (gpu && !psu) {
     warnings.push("Añade una fuente para contrastarla con la recomendación documentada de la GPU.");
+  }
+
+  if (psu?.specs.continuousWatts && psu.specs.continuousWatts < estimatedPower) {
+    errors.push(`El consumo estimado de ${estimatedPower} W supera los ${psu.specs.continuousWatts} W de la fuente.`);
   }
 
   return { errors: [...new Set(errors)], warnings: [...new Set(warnings)], estimatedPower };
