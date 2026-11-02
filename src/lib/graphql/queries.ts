@@ -45,7 +45,7 @@ export const GET_PRODUCTS = gql`
 export const GET_RELATED_PRODUCTS = gql`
   ${PRODUCT_FIELDS}
   query GetRelatedProducts($category: String!, $first: Int = 6) {
-    products(first: $first, where: { category: $category }) {
+    products(first: $first, where: { category: $category, status: "publish" }) {
       nodes { ...ProductFields }
     }
   }
@@ -58,7 +58,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
 
 export const GET_BUILDER_CATEGORY_PRODUCTS = gql`
   query GetBuilderCategoryProducts($category: String, $first: Int = 100) {
-    products(first: $first, where: { category: $category }) {
+    products(first: $first, where: { category: $category, status: "publish" }) {
       nodes {
         id
         databaseId

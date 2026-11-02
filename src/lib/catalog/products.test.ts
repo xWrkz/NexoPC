@@ -30,6 +30,7 @@ describe("catálogo real", () => {
       maxPrice: 2000,
       sort: "price-asc",
     })).toEqual({
+      status: "publish",
       search: "test",
       categoryIn: ["procesadores", "memoria-ram"],
       tagIn: ["oferta-especial", "estudio", "estudiantes"],

@@ -28,6 +28,7 @@ export function buildCatalogWhere(filters: CatalogFilters) {
           : [{ field: "MENU_ORDER", order: "ASC" }];
 
   return {
+    status: "publish",
     ...(filters.query?.trim() ? { search: filters.query.trim() } : {}),
     ...(filters.categories?.length ? { categoryIn: filters.categories } : {}),
     ...(tags.length ? { tagIn: tags } : {}),
