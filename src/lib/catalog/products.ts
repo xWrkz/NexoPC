@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getClient } from "@/lib/apollo/apollo-client";
-import { GET_BUILDER_CATEGORY_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS, GET_RELATED_PRODUCTS } from "@/lib/graphql/queries";
+import { GET_BUILDER_CATEGORY_PRODUCTS, GET_FEATURED_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS, GET_RELATED_PRODUCTS } from "@/lib/graphql/queries";
 import {
   CatalogFilters,
   CatalogResult,
@@ -136,6 +136,25 @@ export async function getRelatedProducts(categorySlug: string, excludeSlug: stri
   }
 }
 
+// Una pieza por categoría: el orden del catálogo agrupa las primeras páginas en una sola familia.
+export async function getFeaturedProducts(): Promise<Product[]> {
+  if (isDemoMode()) return demoProducts.slice(0, 4);
+  if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) return [];
+  try {
+    const { data } = await getClient().query({ query: GET_FEATURED_PRODUCTS, fetchPolicy: "no-cache" });
+    const groups = Object.values((data ?? {}) as Record<string, { nodes?: Product[] } | null>);
+    const picks = groups.flatMap((group) => {
+      const nodes = group?.nodes ?? [];
+      const pick = nodes.find((product) => product.image) ?? nodes[0];
+      return pick ? [pick] : [];
+    });
+    return picks.sort((a, b) => Number(Boolean(b.image)) - Number(Boolean(a.image)));
+  } catch (error) {
+    console.error("Featured products query failed", error);
+    return [];
+  }
+}
+
 const BUILDER_CATEGORIES = [
   "procesadores",
   "placas-madre",
@@ -147,6 +166,8 @@ const BUILDER_CATEGORIES = [
   "refrigeracion"
 ];
 
+const MAX_BUILDER_PAGES = 5;
+
 export async function getAllBuilderProducts(): Promise<Product[]> {
   if (isDemoMode()) return demoProducts;
   if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) return [];
@@ -156,12 +177,19 @@ export async function getAllBuilderProducts(): Promise<Product[]> {
     const results = await Promise.all(
       BUILDER_CATEGORIES.map(async (category) => {
         try {
-          const { data } = await client.query({
-            query: GET_BUILDER_CATEGORY_PRODUCTS,
-            variables: { category, first: 100 },
-            fetchPolicy: "no-cache",
-          });
-          const nodes = (data as { products?: { nodes?: Product[] } })?.products?.nodes ?? [];
+          const nodes: Product[] = [];
+          let after: string | null | undefined;
+          for (let page = 0; page < MAX_BUILDER_PAGES; page++) {
+            const { data } = await client.query({
+              query: GET_BUILDER_CATEGORY_PRODUCTS,
+              variables: { category, first: 100, after },
+              fetchPolicy: "no-cache",
+            });
+            const result = (data as { products?: { nodes?: Product[]; pageInfo?: CatalogResult["pageInfo"] } })?.products;
+            nodes.push(...(result?.nodes ?? []));
+            after = result?.pageInfo?.endCursor;
+            if (!result?.pageInfo?.hasNextPage) break;
+          }
           return nodes;
         } catch (err) {
           console.error(`Failed to load category ${category}`, err);

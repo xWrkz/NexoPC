@@ -51,14 +51,25 @@ export const GET_RELATED_PRODUCTS = gql`
   }
 `;
 
+export const GET_FEATURED_PRODUCTS = gql`
+  ${PRODUCT_FIELDS}
+  query GetFeaturedProducts($first: Int = 6) {
+    gpu: products(first: $first, where: { category: "tarjetas-graficas", status: "publish" }) { nodes { ...ProductFields } }
+    motherboard: products(first: $first, where: { category: "placas-madre", status: "publish" }) { nodes { ...ProductFields } }
+    ram: products(first: $first, where: { category: "memoria-ram", status: "publish" }) { nodes { ...ProductFields } }
+    cpu: products(first: $first, where: { category: "procesadores", status: "publish" }) { nodes { ...ProductFields } }
+  }
+`;
+
 export const GET_PRODUCT_BY_SLUG = gql`
   ${PRODUCT_FIELDS}
   query GetProductBySlug($slug: ID!) { product(id: $slug, idType: SLUG) { ...ProductFields } }
 `;
 
 export const GET_BUILDER_CATEGORY_PRODUCTS = gql`
-  query GetBuilderCategoryProducts($category: String, $first: Int = 100) {
-    products(first: $first, where: { category: $category, status: "publish" }) {
+  query GetBuilderCategoryProducts($category: String, $first: Int = 100, $after: String) {
+    products(first: $first, after: $after, where: { category: $category, status: "publish" }) {
+      pageInfo { hasNextPage endCursor }
       nodes {
         id
         databaseId

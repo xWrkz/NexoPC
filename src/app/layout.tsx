@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { ApolloProvider } from "@/lib/apollo/apollo-provider";
@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   },
   openGraph: { title: "NexoPC — Tu próxima PC empieza aquí", description: "Elige componentes reales o construye tu PC paso a paso.", images: ["/brand/app-icon-512.png"], locale: "es_PE", type: "website" },
 };
+export const viewport: Viewport = { themeColor: "#04060b" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es" data-scroll-behavior="smooth"><body className={`${body.variable} ${display.variable} site-shell min-h-screen`}><ApolloProvider><MotionProvider><AmbientPointer/><Header/><main className="flex-1">{children}</main><Footer/></MotionProvider></ApolloProvider></body></html>;
+  return <html lang="es" data-scroll-behavior="smooth"><body className={`${body.variable} ${display.variable} site-shell min-h-screen`}><a href="#contenido" className="skip-link">Saltar al contenido</a><ApolloProvider><MotionProvider><AmbientPointer/><Header/><main id="contenido" className="flex-1">{children}</main><Footer/></MotionProvider></ApolloProvider></body></html>;
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Lock } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidad — NexoPC",
+  title: "Política de Privacidad",
   description: "Información sobre el tratamiento y protección de datos personales en NexoPC conforme a la normativa peruana.",
 };
 

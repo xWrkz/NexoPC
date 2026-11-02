@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { FileCheck2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Términos y Condiciones — NexoPC",
+  title: "Términos y Condiciones",
   description: "Condiciones comerciales de reserva de pedidos, confirmación de stock, pagos y entregas en NexoPC.",
 };
 

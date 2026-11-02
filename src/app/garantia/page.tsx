@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Wrench } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Política de Garantía — NexoPC",
+  title: "Política de garantía",
   description: "Conoce la cobertura de garantía por defectos de fábrica, trazabilidad por número de serie y proceso de atención en NexoPC.",
 };
 

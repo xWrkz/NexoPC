@@ -1,11 +1,6 @@
-"use client";
-
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpen, BriefcaseBusiness, CheckCircle2, Code2, Gamepad2, Palette, Sparkles } from "lucide-react";
-import { m, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
-import { Product } from "@/types/product";
-import { formatPrice } from "@/lib/utils/formatPrice";
+import { ArrowRight, BookOpen, BriefcaseBusiness, Check, CheckCircle2, Code2, Gamepad2, Palette, Sparkles } from "lucide-react";
+import CategoryIsometricIcon from "@/components/CategoryIsometricIcon";
 
 const audiences = [
   { label: "Mi primera PC", icon: Sparkles, use: "first-pc" },
@@ -16,28 +11,19 @@ const audiences = [
   { label: "Jugar", icon: Gamepad2, use: "gaming" },
 ];
 
-export default function HeroExperience({ products }: { products: Product[] }) {
-  const reduceMotion = useReducedMotion();
-  const pointerX = useMotionValue(0);
-  const pointerY = useMotionValue(0);
-  const springX = useSpring(pointerX, { stiffness: 110, damping: 20 });
-  const springY = useSpring(pointerY, { stiffness: 110, damping: 20 });
-  const visualX = useTransform(springX, [-.5, .5], reduceMotion ? [0, 0] : [-14, 14]);
-  const visualY = useTransform(springY, [-.5, .5], reduceMotion ? [0, 0] : [-10, 10]);
-  const glowX = useTransform(springX, [-.5, .5], ["22%", "72%"]);
-  const glowY = useTransform(springY, [-.5, .5], ["20%", "68%"]);
-  const featured = products.find((product) => product.image && !/demostraci[oó]n|^test$/i.test(product.name));
-  const move = (event: React.PointerEvent<HTMLElement>) => {
-    if (reduceMotion) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    pointerX.set((event.clientX - rect.left) / rect.width - .5);
-    pointerY.set((event.clientY - rect.top) / rect.height - .5);
-  };
+const checks = [
+  { slug: "procesadores", title: "Procesador y placa", detail: "Mismo socket y memoria admitida" },
+  { slug: "memoria-ram", title: "Memoria RAM", detail: "Tipo DDR y ranuras libres" },
+  { slug: "tarjetas-graficas", title: "Tarjeta gráfica", detail: "Largo disponible en el gabinete" },
+  { slug: "refrigeracion", title: "Refrigeración", detail: "Socket, altura, radiador y TDP" },
+  { slug: "fuentes-de-poder", title: "Fuente de poder", detail: "Potencia frente al consumo estimado" },
+];
 
-  return <section onPointerMove={move} onPointerLeave={() => { pointerX.set(0); pointerY.set(0); }} className="hero-forge relative isolate overflow-hidden"><div className="tech-grid absolute inset-0 -z-10"/><div className="noise"/><m.div className="hero-pointer-glow" style={{ left: glowX, top: glowY }}/><div className="circuit-line circuit-line-one"/><div className="circuit-line circuit-line-two"/>
-    <div className="mx-auto grid min-h-[720px] max-w-[90rem] items-center gap-14 px-6 py-20 lg:grid-cols-[1.02fr_.98fr] lg:py-24"><div className="relative z-10"><m.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="hero-kicker"><span className="pulse-dot size-2 rounded-full bg-cyan-300"/>Tecnología que encaja contigo</m.div><h1 className="font-display mt-6 max-w-4xl text-5xl font-bold leading-[.96] text-white sm:text-6xl lg:text-[4.65rem]"><m.span initial={{ opacity: 0, y: 28, filter: "blur(10px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: .65, ease: [.16, 1, .3, 1] }} className="block">Tu próxima PC empieza</m.span><m.span initial={{ opacity: 0, y: 28, filter: "blur(10px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: .65, delay: .13, ease: [.16, 1, .3, 1] }} className="hero-gradient block">con una buena decisión.</m.span></h1><m.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .38 }} className="mt-7 max-w-2xl text-lg leading-8 text-slate-300">No necesitas saberlo todo sobre hardware. Explora componentes reales o deja que te guiemos según lo que estudias, haces y disfrutas.</m.p><m.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .5 }} className="mt-9 flex flex-wrap gap-3"><Link href="/arma-tu-pc?modo=guiado" className="btn-primary focus-ring"><Sparkles size={18}/>Ayúdame a elegir <ArrowRight size={17}/></Link><Link href="/tienda" className="btn-secondary focus-ring">Explorar componentes</Link></m.div><m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: .66 }} className="mt-10"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">¿Para qué la necesitas?</p><div className="mt-3 flex flex-wrap gap-2">{audiences.map(({ label, icon: Icon, use }, index) => <m.div key={use} initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: .7 + index * .06 }}><Link href={`/arma-tu-pc?modo=guiado&uso=${use}`} className="audience-pill focus-ring"><Icon size={14}/>{label}</Link></m.div>)}</div></m.div><m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: .82 }} className="mt-9 flex flex-wrap gap-x-7 gap-y-3 text-sm text-slate-400">{["Precios en soles", "Asesoría en Trujillo", "Disponibilidad actualizada"].map((item) => <span key={item} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-400"/>{item}</span>)}</m.div></div>
+export default function HeroExperience() {
+  return <section className="hero-forge relative isolate overflow-hidden"><div className="tech-grid absolute inset-0 -z-10"/><div className="noise"/><div className="circuit-line circuit-line-one"/><div className="circuit-line circuit-line-two"/>
+    <div className="mx-auto grid max-w-[90rem] grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 py-14 sm:px-6 lg:min-h-[680px] lg:grid-cols-[minmax(0,1.12fr)_minmax(0,.88fr)] lg:py-20"><div className="hero-enter relative z-10 min-w-0"><div className="hero-kicker"><span className="pulse-dot size-2 rounded-full bg-cyan-300"/>Tecnología que encaja contigo</div><h1 className="font-display mt-6 max-w-4xl text-[2.6rem] font-bold leading-[1] text-balance text-white sm:text-6xl lg:text-[4rem]"><span className="block">Tu próxima PC empieza</span><span className="hero-gradient block">con una buena decisión.</span></h1><p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">No necesitas saberlo todo sobre hardware. Explora componentes reales o deja que te guiemos según lo que estudias, haces y disfrutas.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/arma-tu-pc?modo=guiado" className="btn-primary focus-ring"><Sparkles size={18}/>Ayúdame a elegir <ArrowRight size={17}/></Link><Link href="/tienda" className="btn-secondary focus-ring">Explorar componentes</Link></div><div className="mt-9"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">¿Para qué la necesitas?</p><div className="mt-3 flex flex-wrap gap-2">{audiences.map(({ label, icon: Icon, use }) => <Link key={use} href={`/arma-tu-pc?modo=guiado&uso=${use}`} className="audience-pill focus-ring"><Icon size={14}/>{label}</Link>)}</div></div><div className="mt-8 flex flex-wrap gap-x-7 gap-y-3 text-sm text-slate-400">{["Compatibilidad revisada", "Asesoría en Trujillo", "Sin tecnicismos"].map((item) => <span key={item} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-400"/>{item}</span>)}</div></div>
 
-      <m.div style={{ x: visualX, y: visualY }} initial={{ opacity: 0, scale: .93, rotateY: -8 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} transition={{ duration: .85, delay: .18, ease: [.16, 1, .3, 1] }} className="relative mx-auto w-full max-w-xl [perspective:1200px]"><div className="absolute -inset-16 rounded-full bg-orange-500/16 blur-3xl"/><div className="forge-console"><div className="forge-console-top"><span>Nexo Selection System</span><span className="flex items-center gap-2 text-emerald-300"><i className="pulse-dot size-2 rounded-full bg-emerald-400"/>Guía disponible</span></div><div className="forge-product-stage"><div className="scan-line absolute inset-x-0 top-0 z-20 h-px bg-cyan-200/70"/><span className="orbital-ring forge-orbit"/><span className="orbital-ring-reverse forge-orbit forge-orbit-two"/>{featured?.image ? <Image src={featured.image.sourceUrl} alt={featured.image.altText || featured.name} fill priority sizes="(max-width: 1024px) 90vw, 45vw" className="z-10 object-contain p-12 drop-shadow-[0_24px_45px_rgba(0,0,0,.5)]"/> : <Image src="/brand/icon-mark.webp" width={256} height={169} alt="Isotipo NexoPC" priority className="relative z-10 object-contain drop-shadow-[0_0_45px_rgba(255,106,0,.25)]"/>}<m.span animate={reduceMotion ? {} : { y: [0, -6, 0], rotate: [-1, 1, -1] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }} className="forge-float-label"><Sparkles size={13}/>Selección inteligente</m.span></div><div className="forge-readout">{featured ? <><div><small>Selección destacada</small><strong>{featured.name}</strong></div><div className="text-right"><small>Desde</small><strong className="text-orange-300">{formatPrice(featured.price)}</strong></div></> : <><div><small>Empieza por lo que haces</small><strong>Estudia, crea, trabaja o juega.</strong></div><div className="text-right"><small>Sin adivinar</small><strong className="text-cyan-200">Paso a paso</strong></div></>}</div><div className="forge-signals">{["ESTUDIO", "TRABAJO", "CREACIÓN", "GAMING"].map((signal, index) => <m.span key={signal} animate={reduceMotion ? {} : { opacity: [.45, 1, .45] }} transition={{ duration: 2.2, delay: index * .3, repeat: Infinity }}>{signal}</m.span>)}</div></div><m.div animate={reduceMotion ? {} : { y: [0, -6, 0] }} transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }} className="forge-helper"><Sparkles size={15} className="text-cyan-300"/><span><strong>No adivines.</strong> Construye con una guía clara.</span></m.div></m.div>
+      <div className="hero-enter hero-enter-late relative mx-auto w-full min-w-0 max-w-xl"><div className="absolute -inset-16 rounded-full bg-orange-500/12 blur-3xl"/><div className="forge-console"><p className="eyebrow">Arma tu PC</p><h2 className="font-display mt-2 text-2xl font-bold text-white">Revisamos lo que suele fallar</h2><ul className="forge-checks">{checks.map(({ slug, title, detail }) => <li key={slug}><CategoryIsometricIcon slug={slug} name={title} size={30}/><span className="min-w-0 flex-1"><strong>{title}</strong><small>{detail}</small></span><Check size={17} className="shrink-0 text-emerald-300" aria-hidden/></li>)}</ul><Link href="/arma-tu-pc" className="forge-action focus-ring">Probar el armador <ArrowRight size={17}/></Link></div></div>
     </div>
   </section>;
 }
