@@ -44,10 +44,19 @@ test("la home ofrece rutas para públicos diferentes", async ({ page }) => {
   const clientErrors: string[] = [];
   page.on("pageerror", (error) => clientErrors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /tu próxima pc empieza/i })).toBeVisible();
-  await page.getByRole("button", { name: "Estudio" }).click();
-  await expect(page.getByRole("heading", { name: /acompaña tus clases/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /tu próxima pc/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /estudiar/i })).toHaveAttribute("href", /uso=study/);
   expect(clientErrors).toEqual([]);
+});
+
+test("el registro muestra errores por campo sin crear la cuenta", async ({ page }) => {
+  await page.goto("/registro");
+  await expect(page.getByRole("heading", { name: "Crea tu cuenta" })).toBeVisible();
+  await page.getByLabel("DNI").fill("12ab34");
+  await expect(page.getByLabel("DNI")).toHaveValue("1234");
+  await page.getByRole("button", { name: "Crear cuenta" }).click();
+  await expect(page.getByText("El DNI debe tener 8 dígitos.")).toBeVisible();
+  await expect(page.getByText(/debes aceptar los términos/i)).toBeVisible();
 });
 
 test("el armador cambia entre modo guiado y avanzado", async ({ page }) => {

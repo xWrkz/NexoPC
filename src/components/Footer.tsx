@@ -37,6 +37,11 @@ export default function Footer() {
                 Mi carrito
               </Link>
             </li>
+            <li>
+              <Link href="/registro" className="footer-link focus-ring">
+                Crear cuenta
+              </Link>
+            </li>
           </ul>
         </div>
         <div>

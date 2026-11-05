@@ -5,7 +5,6 @@ import { ApolloProvider } from "@/lib/apollo/apollo-provider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import MotionProvider from "@/components/MotionProvider";
-import AmbientPointer from "@/components/AmbientPointer";
 
 const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
@@ -22,5 +21,5 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { themeColor: "#04060b" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es" data-scroll-behavior="smooth"><body className={`${body.variable} ${display.variable} site-shell min-h-screen`}><a href="#contenido" className="skip-link">Saltar al contenido</a><ApolloProvider><MotionProvider><AmbientPointer/><Header/><main id="contenido" className="flex-1">{children}</main><Footer/></MotionProvider></ApolloProvider></body></html>;
+  return <html lang="es" data-scroll-behavior="smooth"><body className={`${body.variable} ${display.variable} site-shell min-h-screen`}><a href="#contenido" className="skip-link">Saltar al contenido</a><ApolloProvider><MotionProvider><Header/><main id="contenido" className="flex-1">{children}</main><Footer/></MotionProvider></ApolloProvider></body></html>;
 }
