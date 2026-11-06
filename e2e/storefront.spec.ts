@@ -46,7 +46,18 @@ test("la home ofrece rutas para públicos diferentes", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /tu próxima pc/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /estudiar/i })).toHaveAttribute("href", /uso=study/);
+  await expect(page.getByTestId("hero-stage").locator("img")).toHaveCount(8);
+  await expect(page.getByRole("list", { name: /compatibilidad/i }).locator("[data-ok='true']")).toHaveCount(6);
+  await expect(page.getByRole("link", { name: /armar configuración de estudio/i })).toHaveAttribute("href", /uso=study/);
   expect(clientErrors).toEqual([]);
+});
+
+test("la home respeta la preferencia de menos movimiento", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const piece = page.locator(".hero-piece").first();
+  await expect(piece).toHaveCSS("opacity", "1", { timeout: 1500 });
+  await expect(page.getByRole("list", { name: /compatibilidad/i }).getByText("~210 W")).toBeVisible();
 });
 
 test("el registro muestra errores por campo sin crear la cuenta", async ({ page }) => {
