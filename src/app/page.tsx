@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, BriefcaseBusiness, CheckCircle2, Code2, Cpu, Gamepad2, Palette, ShieldCheck, Sparkles, UserPlus, Wrench } from "lucide-react";
 import { getCatalog } from "@/lib/catalog/products";
 import { isHiddenCatalogTaxonomy } from "@/lib/catalog/taxonomies";
-import { exampleBuilds, getHeroChecks, getHeroPieces, heroBuild } from "@/lib/home/exampleBuilds";
+import { getHeroChecks, getHeroPieces, heroBuild } from "@/lib/home/exampleBuilds";
+import { getExampleBuilds } from "@/lib/home/pricedBuilds";
 import { validarCompatibilidad } from "@/lib/compatibility/rules";
 import CategoryIsometricIcon from "@/components/CategoryIsometricIcon";
 import BuildCard from "@/components/home/BuildCard";
@@ -51,7 +52,7 @@ function SectionHeader({ index, eyebrow, title, text, href, linkLabel }: { index
 }
 
 export default async function Home() {
-  const catalog = await getCatalog();
+  const [catalog, builds] = await Promise.all([getCatalog(), getExampleBuilds()]);
   const rawCategories = catalog.categories.filter((category) => (category.count ?? 0) > 0 && !isHiddenCatalogTaxonomy(category));
   const categories = (rawCategories.length > 0 ? rawCategories : fallbackCategories).slice(0, 8);
   const heroPieces = getHeroPieces(heroBuild);
@@ -111,10 +112,10 @@ export default async function Home() {
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
         <Reveal>
-          <SectionHeader index="01" eyebrow="Armados por uso" title="Empieza por lo que vas a hacer" text="Tres configuraciones de referencia, validadas con las mismas reglas del armador. Úsalas como punto de partida y cámbialas a tu gusto." href="/tienda" linkLabel="Ver toda la tienda" />
+          <SectionHeader index="01" eyebrow="Armados por uso" title="Empieza por lo que vas a hacer" text="Tres configuraciones con piezas y precios reales del catálogo, revisadas con las mismas reglas del armador. Cárgalas y cambia lo que quieras." href="/tienda" linkLabel="Ver toda la tienda" />
         </Reveal>
         <div className="mt-9 grid gap-4 md:grid-cols-3">
-          {exampleBuilds.map((build, index) => (
+          {builds.map((build, index) => (
             <Reveal key={build.id} delay={index * 0.08} className="flex">
               <BuildCard build={build} index={index} />
             </Reveal>

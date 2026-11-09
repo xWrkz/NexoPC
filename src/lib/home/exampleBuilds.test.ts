@@ -38,13 +38,21 @@ describe("armado del hero", () => {
 });
 
 describe("armados por uso", () => {
-  it.each(exampleBuilds)("$title pasa el validador sin errores", ({ parts }) => {
-    expect(validarCompatibilidad(parts).errors).toEqual([]);
+  it("son tres configuraciones distintas con piezas del catálogo", () => {
+    const signatures = exampleBuilds.map((build) => JSON.stringify(build.slugs));
+    expect(new Set(signatures).size).toBe(3);
+    for (const build of exampleBuilds) {
+      const slugs = Object.values(build.slugs).filter(Boolean);
+      expect(slugs.length).toBeGreaterThanOrEqual(7);
+    }
   });
 
-  it("el armado de estudio funciona sin GPU ni cooler", () => {
-    const study = exampleBuilds.find((build) => build.id === "study")!;
-    expect(validarCompatibilidad(study.parts)).toEqual({ errors: [], warnings: [], estimatedPower: 65 });
-    expect(getBuildChips(study.parts)).toEqual(["AM5", "DDR5 32 GB", "1 TB NVMe", "650 W"]);
+  it("el armado de estudio no lleva tarjeta gráfica", () => {
+    expect(exampleBuilds.find((build) => build.id === "study")!.slugs.gpu).toBeNull();
+  });
+
+  it("los chips salen de los datos del armado", () => {
+    expect(getBuildChips(heroBuild)).toEqual(["AM5", "DDR5", "GPU 228 mm", "650 W"]);
+    expect(getBuildChips({ ...heroBuild, gpu: null })).toEqual(["AM5", "DDR5", "Gráficos integrados", "650 W"]);
   });
 });

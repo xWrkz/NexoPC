@@ -48,8 +48,17 @@ test("la home ofrece rutas para públicos diferentes", async ({ page }) => {
   await expect(page.getByRole("link", { name: /estudiar/i })).toHaveAttribute("href", /uso=study/);
   await expect(page.getByTestId("hero-stage").locator("img")).toHaveCount(8);
   await expect(page.getByRole("list", { name: /compatibilidad/i }).locator("[data-ok='true']")).toHaveCount(6);
-  await expect(page.getByRole("link", { name: /armar configuración de estudio/i })).toHaveAttribute("href", /uso=study/);
+  await expect(page.getByRole("link", { name: /cargar la configuración estudio/i })).toHaveAttribute("href", /armado=amd-ryzen-5-8500g,/);
   expect(clientErrors).toEqual([]);
+});
+
+test("un armado de la home se carga completo en el armador", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: /cargar la configuración gaming/i }).click();
+  // El armador carga el catálogo completo antes de aplicar el armado.
+  await expect(page.locator(".bench-progress")).toContainText("8/8", { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/arma-tu-pc$/);
+  await expect(page.getByRole("list", { name: /conexiones verificadas/i }).getByText("OK", { exact: true })).toHaveCount(6);
 });
 
 test("la home respeta la preferencia de menos movimiento", async ({ page }) => {

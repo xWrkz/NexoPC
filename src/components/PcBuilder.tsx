@@ -1,18 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Copy, Cpu, Gauge, HardDrive, Info, Layers, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { AnimatePresence, m } from "motion/react";
+import { AlertTriangle, ArrowRight, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Copy, Cpu, Gauge, HardDrive, Info, Layers, MemoryStick, MonitorCog, Fan, PackageOpen, Plus, RotateCcw, Search, ShieldAlert, Sparkles, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Product } from "@/types/product";
-import { BuilderCategory, ComponentePC, ComponentSpecs, validarCompatibilidad } from "@/lib/compatibility/rules";
-import { useBuilderStore } from "@/store/builderStore";
+import { BuilderCategory, ComponentePC, validarCompatibilidad } from "@/lib/compatibility/rules";
+import { emptySelection, useBuilderStore } from "@/store/builderStore";
 import { useCartStore } from "@/store/cartStore";
 import { getProductHighlights } from "@/lib/catalog/highlights";
-import { getPriceValue, hasValidPrice } from "@/lib/utils/price";
+import { hasValidPrice } from "@/lib/utils/price";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import ProductPlaceholder from "@/components/ProductPlaceholder";
+import { productCategory, toComponent } from "@/lib/builder/component";
+import { benchLayout, getBenchChecks } from "@/lib/builder/benchChecks";
+
+// "Memoria RAM" -> "memoria RAM": no rompe siglas.
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+const money = (value: number) => `S/ ${value.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const steps: Array<{ key: BuilderCategory; label: string; short: string; help: string; componentType: string; icon: typeof Cpu }> = [
   { key: "cpu", label: "Procesador", short: "CPU", help: "Ejecuta las tareas principales del equipo.", componentType: "procesador", icon: Cpu },
@@ -30,242 +36,6 @@ const goals = [
   { id: "programming", label: "Programación" }, { id: "creation", label: "Diseño y creación" }, { id: "gaming", label: "Gaming" },
 ];
 
-const categorySlugMap: Record<string, BuilderCategory> = {
-  "procesadores": "cpu",
-  "procesador": "cpu",
-  "cpu": "cpu",
-  "placas-madre": "motherboard",
-  "placa-madre": "motherboard",
-  "motherboard": "motherboard",
-  "memoria-ram": "ram",
-  "memorias-ram": "ram",
-  "ram": "ram",
-  "tarjetas-graficas": "gpu",
-  "tarjeta-grafica": "gpu",
-  "tarjetas-de-video": "gpu",
-  "gpu": "gpu",
-  "almacenamiento": "storage",
-  "discos": "storage",
-  "ssd": "storage",
-  "fuentes-de-poder": "psu",
-  "fuente-de-poder": "psu",
-  "fuentes": "psu",
-  "psu": "psu",
-  "gabinetes": "case",
-  "gabinete": "case",
-  "cases": "case",
-  "case": "case",
-  "refrigeracion": "cooler",
-  "refrigeración": "cooler",
-  "coolers": "cooler",
-  "cooler": "cooler",
-};
-
-function productCategory(product: Product): BuilderCategory | undefined {
-  if (product.nexopcHardware?.componentTypeSlug) {
-    const fromHardware = steps.find((step) => step.componentType === product.nexopcHardware?.componentTypeSlug)?.key;
-    if (fromHardware) return fromHardware;
-  }
-  const categoryNodes = product.productCategories?.nodes ?? [];
-  for (const cat of categoryNodes) {
-    const slug = cat.slug?.toLowerCase();
-    if (slug && categorySlugMap[slug]) return categorySlugMap[slug];
-    const name = cat.name?.toLowerCase();
-    if (name && categorySlugMap[name]) return categorySlugMap[name];
-  }
-  return undefined;
-}
-
-const socketMap: Record<string, number> = {
-  "am4": 1,
-  "am5": 2,
-  "lga 1700": 3,
-  "lga1700": 3,
-  "lga 1851": 4,
-  "lga1851": 4,
-  "lga 1200": 5,
-  "lga1200": 5,
-  "lga 1151": 6,
-  "lga1151": 6,
-};
-
-const memoryTypeMap: Record<string, number> = {
-  "ddr4": 1,
-  "ddr5": 2,
-};
-
-function detectBoardFormFactor(text: string): number | undefined {
-  if (/\be-?atx\b/i.test(text)) return 4;
-  if (/\b(?:micro[- ]?atx|matx|m-atx)\b/i.test(text)) return 2;
-  if (/\b(?:mini[- ]?itx|mitx)\b/i.test(text)) return 1;
-  if (/\batx\b/i.test(text)) return 3;
-  return undefined;
-}
-
-function detectCaseSupportedFormFactors(text: string): number[] | undefined {
-  const withoutSubtypes = text.replace(/\b(?:micro|mini)[- ]?(?:atx|itx)\b|\b(?:matx|m-atx|mitx)\b/gi, "");
-  if (/\be-?atx\b/i.test(text)) return [1, 2, 3, 4];
-  if (/\batx\b/i.test(withoutSubtypes)) return [1, 2, 3];
-  if (/\b(?:micro[- ]?atx|matx|m-atx)\b/i.test(text)) return [1, 2];
-  if (/\b(?:mini[- ]?itx|mitx)\b/i.test(text)) return [1];
-  return undefined;
-}
-
-function extractHardwareFromDescription(name: string, html?: string, category?: BuilderCategory): ComponentSpecs {
-  const text = (name + " " + (html || "")).toLowerCase();
-
-  let socketId: number | undefined;
-  for (const [k, v] of Object.entries(socketMap)) {
-    if (text.includes(k)) {
-      socketId = v;
-      break;
-    }
-  }
-
-  let memoryTypeId: number | undefined;
-  for (const [k, v] of Object.entries(memoryTypeMap)) {
-    if (text.includes(k)) {
-      memoryTypeId = v;
-      break;
-    }
-  }
-
-  const formFactorId = detectBoardFormFactor(text);
-
-  const tdpMatch = text.match(/(?:tdp|consumo)[\s:]*(\d+)\s*w/i);
-  const psuWattsMatch = text.match(/\b(\d{3,4})\s*w(?:atts)?\b/i);
-  const recPsuMatch = text.match(/(?:fuente recomendada|recomendada)[\s:]*(\d+)\s*w/i);
-  const gpuContextLengthMatch = text.match(/(?:gpu|tarjeta|gr[aá]fica|vga|longitud|largo)[^.\n]{0,40}?(\d{3})\s*mm/i);
-  const genericLengthMatch = text.match(/\b(\d{3})\s*mm\b/i);
-
-  if (category === "cpu") {
-    let sId = socketId;
-    if (!sId) {
-      if (text.includes("ryzen 7000") || text.includes("ryzen 8000") || text.includes("ryzen 9000") || /ryzen\s+[3579]\s+[789]\d{3}/i.test(text)) {
-        sId = 2; // AM5
-      } else if (text.includes("ryzen 3000") || text.includes("ryzen 4000") || text.includes("ryzen 5000") || /ryzen\s+[3579]\s+[345]\d{3}/i.test(text)) {
-        sId = 1; // AM4
-      } else if (/core\s+ultra/i.test(text)) {
-        sId = 4; // LGA 1851
-      } else if (/i[3579][\s-]*1[234]\d{2,3}/i.test(text)) {
-        sId = 3; // LGA 1700
-      }
-    }
-    const mId = memoryTypeId ?? (sId === 1 ? 1 : sId === 2 || sId === 4 ? 2 : undefined);
-    return {
-      socketId: sId,
-      memoryTypeId: mId,
-      tdpWatts: tdpMatch ? parseInt(tdpMatch[1], 10) : undefined,
-    };
-  }
-
-  if (category === "motherboard") {
-    let sId = socketId;
-    if (!sId) {
-      if (/\b(?:b650|x670|a620|x870|b850)[e]?\b/i.test(text)) sId = 2; // AM5
-      else if (/\b(?:b550|b450|a520|x570|a320)\b/i.test(text)) sId = 1; // AM4
-      else if (/\b(?:b760|z790|h610|b660|z690|h770)\b/i.test(text)) sId = 3; // LGA 1700
-      else if (/\b(?:z890|b860|h810)\b/i.test(text)) sId = 4; // LGA 1851
-    }
-    const supportedMem = memoryTypeId ? [memoryTypeId] : sId === 1 ? [1] : sId === 2 || sId === 4 ? [2] : undefined;
-    return {
-      socketId: sId,
-      formFactorId,
-      supportedMemoryTypeIds: supportedMem,
-      supportedStorageInterfaceIds: [1, 2, 3, 4],
-    };
-  }
-
-  if (category === "ram") {
-    return {
-      memoryTypeId,
-    };
-  }
-
-  if (category === "gpu") {
-    const parsedTdp = tdpMatch ? parseInt(tdpMatch[1], 10) : undefined;
-    const rawLen = gpuContextLengthMatch ? parseInt(gpuContextLengthMatch[1], 10) : genericLengthMatch ? parseInt(genericLengthMatch[1], 10) : undefined;
-    const gpuLengthMm = rawLen && rawLen >= 140 && rawLen <= 450 ? rawLen : undefined;
-    return {
-      tdpWatts: parsedTdp,
-      gpuLengthMm,
-      recommendedPsuWatts: recPsuMatch ? parseInt(recPsuMatch[1], 10) : undefined,
-    };
-  }
-
-  if (category === "storage") {
-    const isNvme = text.includes("nvme") || text.includes("m.2") || text.includes("pcie");
-    const isSata = text.includes("sata") || text.includes("2.5") || text.includes("3.5") || text.includes("hdd");
-    if (!isNvme && !isSata) return {};
-    return {
-      storageInterfaceId: isNvme ? 1 : 3,
-      storageInterfaceSlug: isNvme ? "m2_nvme" : text.includes("3.5") ? "sata_3_5" : "sata_2_5",
-    };
-  }
-
-  if (category === "psu") {
-    return {
-      continuousWatts: psuWattsMatch ? parseInt(psuWattsMatch[1], 10) : undefined,
-    };
-  }
-
-  if (category === "case") {
-    const supportedFormFactorIds = detectCaseSupportedFormFactors(text);
-    const maxGpuLengthMm = gpuContextLengthMatch ? parseInt(gpuContextLengthMatch[1], 10) : undefined;
-    return {
-      supportedFormFactorIds,
-      maxGpuLengthMm,
-    };
-  }
-
-  return {};
-}
-
-function toComponent(product: Product, category: BuilderCategory): ComponentePC {
-  const specs = product.nexopcHardware;
-  const descSpecs = extractHardwareFromDescription(product.name, product.description, category);
-  const nonZero = (val?: number | null) => (val && val > 0 ? val : undefined);
-  const nonEmpty = (arr?: number[] | null) => (arr && arr.length > 0 ? arr : undefined);
-
-  return {
-    id: product.id,
-    productId: product.databaseId,
-    categoria: category,
-    nombre: product.name,
-    precio: getPriceValue(product.price),
-    image: product.image?.sourceUrl,
-    specs: {
-      socketId: nonZero(specs?.socketId) ?? descSpecs.socketId,
-      memoryTypeId: nonZero(specs?.memoryTypeId) ?? descSpecs.memoryTypeId,
-      formFactorId: nonZero(specs?.formFactorId) ?? descSpecs.formFactorId,
-      storageInterfaceId: nonZero(specs?.storageInterfaceId) ?? descSpecs.storageInterfaceId,
-      storageInterfaceSlug: specs?.storageInterfaceSlug || descSpecs.storageInterfaceSlug,
-      supportedMemoryTypeIds: nonEmpty(specs?.supportedMemoryTypeIds) ?? descSpecs.supportedMemoryTypeIds,
-      supportedStorageInterfaceIds: nonEmpty(specs?.supportedStorageInterfaceIds) ?? descSpecs.supportedStorageInterfaceIds,
-      supportedFormFactorIds: nonEmpty(specs?.supportedFormFactorIds) ?? descSpecs.supportedFormFactorIds,
-      tdpWatts: nonZero(specs?.tdpWatts) ?? descSpecs.tdpWatts,
-      gpuLengthMm: nonZero(specs?.gpuLengthMm) ?? descSpecs.gpuLengthMm,
-      recommendedPsuWatts: nonZero(specs?.recommendedPsuWatts) ?? descSpecs.recommendedPsuWatts,
-      maxGpuLengthMm: nonZero(specs?.maxGpuLengthMm) ?? descSpecs.maxGpuLengthMm,
-      maxCoolerHeightMm: nonZero(specs?.maxCoolerHeightMm) ?? descSpecs.maxCoolerHeightMm,
-      continuousWatts: nonZero(specs?.continuousWatts) ?? descSpecs.continuousWatts,
-      m2Slots: nonZero(specs?.m2Slots),
-      sataPorts: nonZero(specs?.sataPorts),
-      bays25: nonZero(specs?.bays25) ?? descSpecs.bays25,
-      bays35: nonZero(specs?.bays35) ?? descSpecs.bays35,
-      integratedGraphics: specs?.integratedGraphics ?? undefined,
-      coolerIncluded: specs?.coolerIncluded ?? undefined,
-      ramSlots: nonZero(specs?.ramSlots),
-      modules: nonZero(specs?.modules),
-      maxRadiatorMm: nonZero(specs?.maxRadiatorMm),
-      coolerType: specs?.coolerType ?? undefined,
-      coolerHeightMm: nonZero(specs?.coolerHeightMm),
-      radiatorMm: nonZero(specs?.radiatorMm),
-      maxTdpWatts: nonZero(specs?.maxTdpWatts),
-      supportedSocketIds: nonEmpty(specs?.supportedSocketIds),
-    },
-  };
-}
 
 
 function getProductRecommendation(
@@ -347,11 +117,10 @@ function getProductRecommendation(
 
 export default function PcBuilder({ products }: { products: Product[] }) {
   const params = useSearchParams();
-  const router = useRouter();
-  const reduce = useReducedMotion();
   const initialMode = params.get("modo") === "guiado" ? "guided" : "advanced";
   const urlGoal = params.get("uso");
   const urlPiece = params.get("pieza");
+  const urlBuild = params.get("armado");
   const {
     activeGoal,
     seleccion,
@@ -359,6 +128,7 @@ export default function PcBuilder({ products }: { products: Product[] }) {
     result,
     setActiveGoal,
     setComponente,
+    setSeleccion,
     loadGoal,
     copyCurrentToGoal,
     resetCurrentGoal,
@@ -414,17 +184,32 @@ export default function PcBuilder({ products }: { products: Product[] }) {
     });
   }, [products, seleccion, setComponente, goal]);
 
+  // ?armado=slug,slug… carga una configuración completa (los armados de referencia de la home).
+  useEffect(() => {
+    if (!urlBuild || !products.length) return;
+    const next = { ...emptySelection };
+    for (const slug of urlBuild.split(",")) {
+      const product = products.find((item) => item.slug === slug);
+      const category = product && productCategory(product);
+      if (product && category) next[category] = toComponent(product, category);
+    }
+    setSeleccion(next, goal);
+    // Se quita el parámetro sin navegar: si quedara, recargar pisaría los cambios del usuario.
+    window.history.replaceState(null, "", "/arma-tu-pc");
+  }, [urlBuild, products, goal, setSeleccion]);
+
   useEffect(() => {
     if (!urlPiece) return;
     const product = products.find((item) => item.slug === urlPiece);
     const category = product && productCategory(product);
     if (product && category) setComponente(category, toComponent(product, category), goal);
     // La pieza ya pasó a la selección: sin el parámetro, recargar no la vuelve a añadir.
-    router.replace("/arma-tu-pc", { scroll: false });
-  }, [urlPiece, products, goal, router, setComponente]);
+    window.history.replaceState(null, "", "/arma-tu-pc");
+  }, [urlPiece, products, goal, setComponente]);
 
   const addItem = useCartStore((state) => state.addItem);
   const selected = Object.values(seleccion).filter(Boolean) as ComponentePC[];
+  const benchChecks = useMemo(() => getBenchChecks(seleccion), [seleccion]);
   const progress = Math.round((selected.length / steps.length) * 100);
   const total = getTotal();
   const optionsByCategory = useMemo(() => Object.fromEntries(steps.map((step) => [step.key, products.filter((product) => productCategory(product) === step.key)])) as Record<BuilderCategory, Product[]>, [products]);
@@ -575,10 +360,10 @@ export default function PcBuilder({ products }: { products: Product[] }) {
 
     <div className="builder-workspace"><aside className="builder-steps"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black uppercase tracking-[.16em] text-slate-400">Componentes</span><strong className="text-sm text-cyan-200">{selected.length}/{steps.length}</strong></div>{steps.map((step, index) => { const current = seleccion[step.key]; const available = optionsByCategory[step.key].length; const Icon = step.icon; return <button type="button" key={step.key} onClick={() => setActiveCategory(step.key)} className={`builder-step focus-ring ${current ? "builder-step-complete" : ""} ${activeCategory === step.key ? "builder-step-active" : ""}`}><span className="builder-step-number">{current ? <Check size={14}/> : index + 1}</span><Icon size={17}/><span className="min-w-0 flex-1 text-left"><strong>{step.label}</strong><small>{current ? current.nombre : available ? `${available} ${available === 1 ? "opción" : "opciones"}` : "Sin ficha técnica"}</small></span><ChevronRight size={15}/></button>; })}{unclassified ? <p className="mt-4 flex gap-2 rounded-xl border border-amber-300/12 bg-amber-300/5 p-3 text-xs leading-5 text-amber-100/70"><Info size={14} className="mt-0.5 shrink-0"/>{unclassified} {unclassified === 1 ? "producto aún no tiene" : "productos aún no tienen"} tipo de componente y ficha técnica; no aparecerán en el armador hasta completarlos.</p> : null}</aside>
 
-      <section className="builder-stage"><div className="builder-stage-header"><div><p className="eyebrow">Vista de tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">Tu equipo toma forma aquí.</h2></div><div className="builder-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}%</span></div></div><div className="pc-chassis"><div className="tech-grid absolute inset-0 opacity-50"/><span className="pc-energy-line"/><Image src="/brand/icon-mark.webp" width={110} height={73} alt="" className="pc-brand-mark"/><div className="pc-slot-grid">{steps.map((step, index) => { const item = seleccion[step.key]; const Icon = step.icon; return <m.button type="button" layout key={step.key} onClick={() => setActiveCategory(step.key)} className={`pc-slot focus-ring ${item ? "pc-slot-filled" : ""}`} initial={false} animate={item && !reduce ? { scale: [1, 1.06, 1] } : {}} transition={{ duration: .45 }}><span className="pc-slot-icon"><Icon size={18}/></span><span><small>{step.short}</small><strong>{item ? item.nombre : "Pendiente"}</strong></span>{item ? <CheckCircle2 size={16} className="ml-auto text-emerald-300"/> : <Plus size={15} className="ml-auto text-slate-600"/>}<span className="pc-slot-order">0{index + 1}</span></m.button>; })}</div></div><div className="builder-stage-tip"><CircleHelp size={17}/><span><strong>{mode === "guided" ? `Modo guiado: ${goals.find((item) => item.id === goal)?.label}` : "Modo avanzado"}.</strong> Elige cualquier pieza para comparar opciones del catálogo.</span></div></section>
+      <section className="builder-stage"><div className="builder-stage-header"><div><p className="eyebrow">Vista de tu configuración</p><h2 className="font-display mt-2 text-4xl uppercase leading-none">Plano del equipo</h2></div><span className="bench-progress">{selected.length}/{steps.length} piezas · {progress}%</span></div><div className="bench-plan">{benchLayout.map((key) => { const step = steps.find((item) => item.key === key)!; const item = seleccion[key]; const Icon = step.icon; return <button type="button" key={key} onClick={() => setActiveCategory(key)} className={`bench-bay bench-bay-${key} focus-ring ${item ? "bench-bay-filled" : ""} ${activeCategory === key ? "bench-bay-active" : ""}`} aria-label={item ? `${step.label}: ${item.nombre}. Cambiar` : `Elegir ${lowerFirst(step.label)}`}><span className="bench-bay-head"><span>{step.label}</span>{item ? <Check size={13}/> : null}</span>{item ? <span className="bench-bay-body"><span className="bench-bay-plate">{item.image ? <Image src={item.image} alt="" fill sizes="96px" className="object-contain p-1.5"/> : <Icon size={22}/>}</span><span className="min-w-0"><strong>{item.nombre}</strong><em>{item.precio > 0 ? formatPrice(String(item.precio)) : "Precio por confirmar"}</em></span></span> : <span className="bench-bay-empty"><Plus size={15}/>Elegir {lowerFirst(step.label)}</span>}</button>; })}</div><ul className="bench-checks" aria-label="Conexiones verificadas">{benchChecks.map((check) => <li key={check.id} className={`bench-check bench-check-${check.state}`}><span>{check.label}</span><strong>{check.state === "pending" ? "—" : check.detail}</strong><i>{check.state === "ok" ? "OK" : check.state === "fail" ? "Revisar" : "Pendiente"}</i></li>)}</ul><div className="builder-stage-tip"><CircleHelp size={17}/><span><strong>{mode === "guided" ? `Modo guiado: ${goals.find((item) => item.id === goal)?.label}` : "Modo avanzado"}.</strong> Elige cualquier pieza para comparar opciones del catálogo.</span></div></section>
 
 
-      <aside id="resumen" className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/8"><m.div className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-300 to-cyan-300" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{item.precio > 0 ? formatPrice(String(item.precio)) : "Por confirmar"}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige una pieza para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className={`price ${pendingPrices ? "text-base text-amber-200" : "text-2xl"}`}>{pendingPrices ? (total > 0 ? `S/ ${total.toFixed(2)} + ${pendingPrices} por confirmar` : "Por confirmar") : `S/ ${total.toFixed(2)}`}</span></div>{budget && !pendingPrices ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por S/ ${(total - budget).toFixed(2)}` : `Restan S/ ${(budget - total).toFixed(2)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length) || pendingPrices > 0} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>{pendingPrices ? "Precios por confirmar" : "Añadir configuración"}</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
+      <aside id="resumen" className="builder-summary"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Tu configuración</p><h2 className="font-display mt-2 text-3xl font-bold">{selected.length}/{steps.length} piezas</h2></div><div className="builder-summary-icon"><Cpu size={21}/></div></div><div className="mt-5 h-1 overflow-hidden bg-white/8"><m.div className="h-full bg-orange-500" animate={{ width: `${progress}%` }}/></div><div className="mt-6 max-h-56 space-y-2 overflow-auto pr-1">{selected.length ? selected.map((item) => <div key={item.categoria} className="builder-summary-item flex items-center justify-between gap-2 group"><span className="min-w-0 flex-1 truncate">{item.nombre}</span><div className="flex items-center gap-2 shrink-0"><strong>{item.precio > 0 ? formatPrice(String(item.precio)) : "Por confirmar"}</strong><button type="button" onClick={() => setComponente(item.categoria, null, goal)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-rose-400 transition" title={`Quitar ${item.nombre}`} aria-label={`Quitar ${item.nombre}`}><X size={14}/></button></div></div>) : <div className="builder-empty"><Sparkles size={18}/>Elige una pieza para comenzar.</div>}</div><div className="builder-power"><span><Zap size={16}/>Consumo estimado</span><strong>{result.estimatedPower ? `${result.estimatedPower} W` : "—"}</strong><small>{result.estimatedPower ? "Referencia basada en la información disponible." : "Aparecerá cuando selecciones componentes con consumo registrado."}</small></div>{result.errors.length ? <div className="builder-alert builder-alert-error"><p><ShieldAlert size={16}/>Incompatibilidad comprobada</p><ul>{result.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{result.warnings.length ? <div className="builder-alert builder-alert-warning"><p><AlertTriangle size={16}/>Información por confirmar</p><ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : null}<div className="mt-6 border-t border-white/8 pt-5"><div className="flex items-end justify-between"><span className="font-bold text-slate-300">Total estimado</span><span className={`price ${pendingPrices ? "text-base text-amber-200" : "text-2xl"}`}>{pendingPrices ? (total > 0 ? `${money(total)} + ${pendingPrices} por confirmar` : "Por confirmar") : `${money(total)}`}</span></div>{budget && !pendingPrices ? <div className={`mt-2 text-right text-xs font-bold ${total > budget ? "text-amber-300" : "text-slate-500"}`}>{total > budget ? `Supera tu referencia por ${money(total - budget)}` : `Restan ${money(budget - total)} de tu referencia`}</div> : null}<button onClick={addBuild} disabled={!selected.length || Boolean(result.errors.length) || pendingPrices > 0} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40"><Plus size={18}/>{pendingPrices ? "Precios por confirmar" : "Añadir configuración"}</button><button onClick={resetBuild} className="focus-ring mt-3 flex w-full items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><RotateCcw size={15}/>Reiniciar selección</button></div></aside>
 
     </div>
 
