@@ -110,6 +110,8 @@ export const getProductBySlug = cache(async function getProductBySlug(slug: stri
     const { data } = await getClient().query({ query: GET_PRODUCT_BY_SLUG, variables: { slug }, fetchPolicy: "no-cache" });
     return (data as { product?: Product }).product ?? null;
   } catch (error) {
+    // WPGraphQL responde con error, no con null, cuando el slug no existe: es un 404, no una caída.
+    if (error instanceof Error && /No product ID was found/i.test(error.message)) return null;
     console.error("Product query failed", error);
     throw new CatalogSourceError();
   }
