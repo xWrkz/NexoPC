@@ -37,12 +37,12 @@ const fallbackCategories = [
   { id: "cat-refrigeracion", name: "Refrigeración", slug: "refrigeracion", count: null },
 ];
 
-function SectionHeader({ eyebrow, title, text, href, linkLabel }: { eyebrow: string; title: string; text?: string; href?: string; linkLabel?: string }) {
+function SectionHeader({ index, eyebrow, title, text, href, linkLabel }: { index: string; eyebrow: string; title: string; text?: string; href?: string; linkLabel?: string }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-5">
       <div className="max-w-2xl">
-        <p className="eyebrow">{eyebrow}</p>
-        <h2 className="font-display mt-2 text-3xl font-bold sm:text-4xl">{title}</h2>
+        <p className="eyebrow"><span className="section-index">{index}</span>{eyebrow}</p>
+        <h2 className="font-display mt-3 text-4xl uppercase leading-[.95] sm:text-5xl">{title}</h2>
         {text ? <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">{text}</p> : null}
       </div>
       {href ? <Link href={href} className="home-link focus-ring">{linkLabel} <ArrowRight size={16} /></Link> : null}
@@ -57,6 +57,13 @@ export default async function Home() {
   const heroPieces = getHeroPieces(heroBuild);
   const heroChecks = getHeroChecks(heroBuild);
   const { estimatedPower } = validarCompatibilidad(heroBuild);
+  const totalParts = rawCategories.reduce((sum, category) => sum + (category.count ?? 0), 0);
+  const specStrip = [
+    { label: "Componentes", value: totalParts ? String(totalParts) : "—" },
+    { label: "Categorías", value: String(categories.length).padStart(2, "0") },
+    { label: "Revisamos", value: "Socket · DDR · GPU · Fuente" },
+    { label: "Precios", value: "Soles, con IGV" },
+  ];
 
   return (
     <div>
@@ -65,8 +72,8 @@ export default async function Home() {
         <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1.02fr_.98fr] lg:items-center lg:gap-10 lg:py-20">
           <div className="min-w-0">
             <p className="hero-tag"><span className="hero-tag-dot" aria-hidden="true" />Componentes y PCs a medida · Trujillo</p>
-            <h1 className="font-display mt-5 max-w-2xl text-[2.35rem] font-bold leading-[1.04] text-balance sm:text-6xl">
-              Tu próxima PC, <span className="text-orange-400">sin complicaciones.</span>
+            <h1 className="font-display hero-title mt-6 max-w-2xl text-[3.3rem] sm:text-[5.6rem]">
+              Tu próxima PC, <em>armada pieza por pieza.</em>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-400 sm:text-lg">
               No necesitas saberlo todo sobre hardware. Revisamos que cada pieza encaje con la siguiente y te guiamos según lo que vas a hacer.
@@ -96,9 +103,15 @@ export default async function Home() {
         </div>
       </section>
 
+      <section className="spec-strip" aria-label="El taller en cifras">
+        <ul className="mx-auto max-w-7xl">
+          {specStrip.map((item) => <li key={item.label}><span>{item.label}</span><strong>{item.value}</strong></li>)}
+        </ul>
+      </section>
+
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
         <Reveal>
-          <SectionHeader eyebrow="Armados por uso" title="Empieza por lo que vas a hacer" text="Tres configuraciones de referencia, validadas con las mismas reglas del armador. Úsalas como punto de partida y cámbialas a tu gusto." href="/tienda" linkLabel="Ver toda la tienda" />
+          <SectionHeader index="01" eyebrow="Armados por uso" title="Empieza por lo que vas a hacer" text="Tres configuraciones de referencia, validadas con las mismas reglas del armador. Úsalas como punto de partida y cámbialas a tu gusto." href="/tienda" linkLabel="Ver toda la tienda" />
         </Reveal>
         <div className="mt-9 grid gap-4 md:grid-cols-3">
           {exampleBuilds.map((build, index) => (
@@ -111,9 +124,9 @@ export default async function Home() {
 
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-24">
         <Reveal>
-          <SectionHeader eyebrow="Categorías" title="O ve directo a la pieza" href="/tienda" linkLabel="Ver catálogo" />
+          <SectionHeader index="02" eyebrow="Categorías" title="O ve directo a la pieza" href="/tienda" linkLabel="Ver catálogo" />
         </Reveal>
-        <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="parts-grid mt-8 grid-cols-2 md:grid-cols-4">
           {categories.map((category, index) => (
             <Reveal key={category.id} delay={index * 0.04} className="flex">
               <Link href={`/tienda?categoria=${encodeURIComponent(category.slug)}`} className="home-category group focus-ring">
@@ -150,7 +163,7 @@ export default async function Home() {
         <Reveal className="flex">
           <div className="home-cta">
             <p className="eyebrow">Arma tu PC</p>
-            <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">La primera PC no tiene por qué ser complicada.</h2>
+            <h2 className="font-display mt-3 text-3xl uppercase leading-[.95] sm:text-4xl">La primera PC no tiene por qué ser complicada.</h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">Elige un objetivo, define tu presupuesto y avanza pieza por pieza con explicaciones claras.</p>
             <Link href="/arma-tu-pc?modo=guiado" className="btn-primary focus-ring">Empezar con ayuda <ArrowRight size={17} /></Link>
           </div>
@@ -158,7 +171,7 @@ export default async function Home() {
         <Reveal delay={0.08} className="flex">
           <div className="home-cta">
             <p className="eyebrow">Tu cuenta</p>
-            <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">Regístrate y te atendemos más rápido.</h2>
+            <h2 className="font-display mt-3 text-3xl uppercase leading-[.95] sm:text-4xl">Regístrate y te atendemos más rápido.</h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">Crea tu cuenta con tu correo, celular y DNI para recibir asesoría y agilizar tus pedidos.</p>
             <Link href="/registro" className="btn-secondary focus-ring"><UserPlus size={17} />Crear cuenta</Link>
           </div>
