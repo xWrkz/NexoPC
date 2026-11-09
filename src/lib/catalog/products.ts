@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getClient } from "@/lib/apollo/apollo-client";
-import { GET_BUILDER_CATEGORY_PRODUCTS, GET_FEATURED_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS, GET_RELATED_PRODUCTS } from "@/lib/graphql/queries";
+import { GET_BUILDER_CATEGORY_PRODUCTS, GET_FEATURED_PRODUCTS, GET_PRODUCT_BY_SLUG, GET_PRODUCTS, GET_PRODUCTS_BY_SLUGS, GET_RELATED_PRODUCTS } from "@/lib/graphql/queries";
 import {
   CatalogFilters,
   CatalogResult,
@@ -134,6 +134,20 @@ export async function getRelatedProducts(categorySlug: string, excludeSlug: stri
     return nodes.filter((item) => item.slug !== excludeSlug).slice(0, 4);
   } catch (error) {
     console.error("Related products query failed", error);
+    return [];
+  }
+}
+
+/** Productos publicados con esos slugs. Si el catálogo falla devuelve [] y quien llama decide qué mostrar. */
+export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
+  if (!slugs.length) return [];
+  if (isDemoMode()) return demoProducts.filter((product) => slugs.includes(product.slug));
+  if (!process.env.NEXT_PUBLIC_GRAPHQL_URL) return [];
+  try {
+    const { data } = await getClient().query({ query: GET_PRODUCTS_BY_SLUGS, variables: { slugs, first: Math.min(slugs.length, 100) }, fetchPolicy: "no-cache" });
+    return (data as { products?: { nodes?: Product[] } })?.products?.nodes ?? [];
+  } catch (error) {
+    console.error("Products by slug query failed", error);
     return [];
   }
 }

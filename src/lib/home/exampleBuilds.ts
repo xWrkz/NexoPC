@@ -6,7 +6,8 @@ import { BuilderCategory, ComponentePC, validarCompatibilidad } from "@/lib/comp
 
 export type BuildParts = Record<BuilderCategory, ComponentePC | null>;
 export type ExampleBuildId = "study" | "creation" | "gaming";
-export type ExampleBuild = { id: ExampleBuildId; title: string; tagline: string; parts: BuildParts };
+export type BuildSlugs = Record<BuilderCategory, string | null>;
+export type ExampleBuild = { id: ExampleBuildId; title: string; tagline: string; slugs: BuildSlugs };
 export type HeroCheck = { id: string; label: string; detail: string; ok: boolean };
 export type HeroPiece = { key: BuilderCategory; name: string; short: string; icon: string };
 
@@ -76,35 +77,35 @@ export function getHeroChecks(build: BuildParts = heroBuild): HeroCheck[] {
   ];
 }
 
-/** Chips técnicos cortos para las tarjetas de armado. */
+/** Chips técnicos cortos para las tarjetas de armado, solo con datos que trae la ficha. */
 export function getBuildChips(build: BuildParts): string[] {
-  const { cpu, ram, gpu, storage, psu } = build;
+  const { cpu, ram, gpu, psu } = build;
   const chips: string[] = [];
-  if (cpu?.specs.socketId) chips.push(socketNames[cpu.specs.socketId]);
-  if (ram?.specs.memoryTypeId) chips.push(`${memoryNames[ram.specs.memoryTypeId]} ${ram.specs.modules === 2 ? "32 GB" : "16 GB"}`);
-  if (gpu) chips.push(`${gpu.specs.gpuLengthMm} mm`);
-  if (storage?.specs.storageInterfaceSlug === "m2_nvme") chips.push("1 TB NVMe");
+  if (cpu?.specs.socketId && socketNames[cpu.specs.socketId]) chips.push(socketNames[cpu.specs.socketId]);
+  if (ram?.specs.memoryTypeId && memoryNames[ram.specs.memoryTypeId]) chips.push(memoryNames[ram.specs.memoryTypeId]);
+  if (gpu?.specs.gpuLengthMm) chips.push(`GPU ${gpu.specs.gpuLengthMm} mm`);
+  else if (!gpu && cpu?.specs.integratedGraphics) chips.push("Gráficos integrados");
   if (psu?.specs.continuousWatts) chips.push(`${psu.specs.continuousWatts} W`);
   return chips;
 }
 
+const studySlugs: BuildSlugs = {
+  cpu: "amd-ryzen-5-8500g", motherboard: "asus-prime-a620m-k", ram: "kingston-fury-beast-ddr5-5600-16gb", gpu: null,
+  storage: "kingston-nv3-500gb", psu: "deepcool-pl650d-v2", case: "teros-te-1323g", cooler: "deepcool-ag400-g2",
+};
+const gamingSlugs: BuildSlugs = {
+  cpu: "amd-ryzen-5-7600", motherboard: "gigabyte-b650m-d3hp-ax", ram: "kingston-fury-beast-ddr5-6000-16gb", gpu: "gigabyte-geforce-rtx-5060-windforce-max-oc-8g",
+  storage: "kingston-nv3-1tb", psu: "msi-mag-a750bn-pcie5", case: "deepcool-ch260", cooler: "deepcool-ak400-g2",
+};
+const creationSlugs: BuildSlugs = {
+  cpu: "amd-ryzen-7-9700x", motherboard: "gigabyte-b650m-d3hp-ax", ram: "kingston-fury-beast-ddr5-5600-32gb", gpu: "gigabyte-geforce-rtx-5060-ti-eagle-oc-8g",
+  storage: "kingston-nv3-2tb", psu: "msi-mag-a750gls-pcie5", case: "deepcool-cg580", cooler: "deepcool-ak500-zero-dark",
+};
+
+// Piezas reales del catálogo curado, por slug de WooCommerce. El precio, las specs y la
+// compatibilidad se leen del backend al mostrar la home (ver resolveBuild).
 export const exampleBuilds: ExampleBuild[] = [
-  {
-    id: "study",
-    title: "Estudio",
-    tagline: "Clases, videollamadas y proyectos sin esperas. Los gráficos integrados del Ryzen bastan.",
-    parts: { ...heroBuild, gpu: null, cooler: null },
-  },
-  {
-    id: "creation",
-    title: "Creación",
-    tagline: "32 GB de RAM y NVMe para editar, diseñar y renderizar sin que la PC se quede corta.",
-    parts: heroBuild,
-  },
-  {
-    id: "gaming",
-    title: "Gaming 1080p",
-    tagline: "RTX 5060 con fuente de sobra y aire fresco: juega hoy y deja espacio para mejorar.",
-    parts: heroBuild,
-  },
+  { id: "study", title: "Estudio", tagline: "Ryzen 5 8500G con gráficos integrados: clases, ofimática y videollamadas sin tarjeta de video.", slugs: studySlugs },
+  { id: "gaming", title: "Gaming 1080p", tagline: "Ryzen 5 7600 y RTX 5060 para jugar en 1080p, con fuente de 750 W para mejorar después.", slugs: gamingSlugs },
+  { id: "creation", title: "Creación", tagline: "Ryzen 7 9700X, 32 GB y RTX 5060 Ti para editar, diseñar y renderizar sin esperas.", slugs: creationSlugs },
 ];

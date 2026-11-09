@@ -51,6 +51,15 @@ export const GET_RELATED_PRODUCTS = gql`
   }
 `;
 
+export const GET_PRODUCTS_BY_SLUGS = gql`
+  ${PRODUCT_FIELDS}
+  query GetProductsBySlugs($slugs: [String], $first: Int = 50) {
+    products(first: $first, where: { slugIn: $slugs, status: "publish" }) {
+      nodes { ...ProductFields }
+    }
+  }
+`;
+
 export const GET_FEATURED_PRODUCTS = gql`
   ${PRODUCT_FIELDS}
   query GetFeaturedProducts($first: Int = 6) {
