@@ -404,7 +404,13 @@ export default function PcBuilder({ products }: { products: Product[] }) {
     if (!products.length) return;
     steps.forEach(({ key }) => {
       const current = seleccion[key];
-      if (current && !products.some((product) => product.id === current.id)) setComponente(key, null, goal);
+      if (!current) return;
+      const product = products.find((item) => item.id === current.id);
+      if (!product) return setComponente(key, null, goal);
+      // La selección guardada en el navegador conserva el precio de cuando se eligió:
+      // se reemplaza por la ficha actual para no mostrar precios ni datos viejos.
+      const fresh = toComponent(product, key);
+      if (JSON.stringify(fresh) !== JSON.stringify(current)) setComponente(key, fresh, goal);
     });
   }, [products, seleccion, setComponente, goal]);
 
