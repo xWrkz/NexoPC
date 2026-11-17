@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { registerSchema } from "./schema";
+import { loginSchema, registerSchema, safeNext } from "./schema";
+
+describe("loginSchema", () => {
+  it("normaliza el correo y exige contraseña", () => {
+    expect(loginSchema.parse({ email: " Kevin@Example.com ", password: "x" }).email).toBe("kevin@example.com");
+    expect(loginSchema.safeParse({ email: "kevin@example.com", password: "" }).success).toBe(false);
+  });
+});
+
+describe("safeNext", () => {
+  it("acepta rutas internas", () => {
+    expect(safeNext("/checkout")).toBe("/checkout");
+    expect(safeNext("/tienda?q=ryzen&orden=precio")).toBe("/tienda?q=ryzen&orden=precio");
+  });
+
+  it("descarta destinos externos o ambiguos", () => {
+    const unsafe = ["https://evil.example", "//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "javascript:alert(1)", "", undefined, 42, "/" + "a".repeat(250)];
+    for (const value of unsafe) expect(safeNext(value)).toBe("/cuenta");
+    expect(safeNext("//evil", "/checkout")).toBe("/checkout");
+  });
+});
 
 const valid = {
   firstName: "María José",

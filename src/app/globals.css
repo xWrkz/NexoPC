@@ -864,3 +864,31 @@ body { color: var(--text); font-family: var(--font-archivo), Arial, sans-serif; 
   .bench-bay-empty { min-height: 2.6rem; }
   .bench-checks { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+/* Mi cuenta */
+.account-profile { border-radius: 0; padding: 1.4rem; }
+.account-profile dl { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.account-profile dl > div { display: grid; gap: .2rem; border-bottom: 1px solid var(--line); padding: .8rem 0; }
+.account-profile dt { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: .64rem; letter-spacing: .14em; text-transform: uppercase; }
+.account-profile dd { margin: 0; color: var(--text); font-size: .92rem; overflow-wrap: anywhere; }
+.account-empty { display: grid; justify-items: center; gap: .5rem; border-radius: 0; padding: 2.5rem 1.5rem; text-align: center; }
+.account-order { border: 1px solid var(--line); background: var(--ink); }
+.account-order > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; border-bottom: 1px solid var(--line); padding: .9rem 1.1rem; }
+.account-order h3 { font-family: var(--font-plex-mono), monospace; font-size: .95rem; font-weight: 600; }
+.account-order > header p { margin-top: .15rem; color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.account-order ul { display: grid; }
+.account-order li { display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--line); padding: .7rem 1.1rem; color: #dfddda; font-size: .85rem; }
+.account-order li small { display: block; margin-top: .1rem; color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: .66rem; }
+.account-order li strong { flex-shrink: 0; font-family: var(--font-plex-mono), monospace; font-size: .8rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.account-order-thumb { position: relative; flex-shrink: 0; width: 44px; height: 44px; border: 1px solid var(--line); background: #e9e7e2; }
+.account-order > footer { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: .85rem 1.1rem; color: var(--muted); font-size: .8rem; }
+.account-order-action { display: inline-flex; align-items: center; gap: .35rem; color: var(--accent); font-weight: 700; }
+.account-order-action:hover { text-decoration: underline; text-underline-offset: 3px; }
+.account-order-total { margin-left: auto; font-family: var(--font-plex-mono), monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+.account-order-total b { margin-left: .4rem; color: var(--text); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.order-status { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid currentColor; padding: .28rem .55rem; font-family: var(--font-plex-mono), monospace; font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; }
+.order-status::before { content: ""; width: .45rem; height: .45rem; background: currentColor; }
+.order-status[data-tone="ok"] { color: var(--ok); }
+.order-status[data-tone="warn"] { color: var(--warn); }
+.order-status[data-tone="bad"] { color: var(--bad); }
+.order-status[data-tone="muted"] { color: var(--muted); }

@@ -2,6 +2,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
+const jar = vi.hoisted(() => ({ current: null as null | ReturnType<typeof import("@/test/cookieJar").createCookieJar> }));
+vi.mock("next/headers", async () => {
+  const { createCookieJar } = await import("@/test/cookieJar");
+  jar.current = createCookieJar();
+  return { cookies: jar.current.cookies };
+});
+
 const SECRET = "s".repeat(40);
 const valid = {
   firstName: "Kevin",
@@ -23,6 +30,7 @@ const registerRequest = (body: unknown, headers: Record<string, string> = {}) =>
 
 describe("POST /api/register", () => {
   beforeEach(() => {
+    jar.current?.values.clear();
     process.env.NEXT_PUBLIC_WORDPRESS_URL = "https://wp.test";
     process.env.NEXOPC_SIGNUP_SECRET = SECRET;
   });
@@ -43,6 +51,32 @@ describe("POST /api/register", () => {
     expect(init.headers["X-NexoPC-Signup-Secret"]).toBe(SECRET);
     expect(init.headers["X-NexoPC-Client-IP"]).toBe("200.1.2.3");
     expect(JSON.parse(init.body).phone).toBe("987654321");
+  });
+
+  it("inicia sesión automáticamente tras crear la cuenta", async () => {
+    const session = `5.${"k".repeat(43)}`;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, customerId: 5 }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ session, expiresAt: new Date(Date.now() + 60_000).toISOString(), customer: { firstName: "Kevin" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await POST(registerRequest(valid));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ ok: true, loggedIn: true });
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe("https://wp.test/wp-json/nexopc/v1/customers/login");
+    expect(JSON.parse(init.body)).toEqual({ email: "kevin@example.com", password: "clave1234" });
+    expect(jar.current!.values.get("nexopc_session")?.value).toBe(session);
+  });
+
+  it("confirma la cuenta aunque el inicio de sesión automático falle", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, customerId: 5 }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: "x" }), { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await POST(registerRequest(valid));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ ok: true, loggedIn: false });
+    expect(jar.current!.values.size).toBe(0);
   });
 
   it("devuelve errores por campo sin llamar al backend", async () => {

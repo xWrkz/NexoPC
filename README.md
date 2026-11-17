@@ -72,13 +72,13 @@ Este frontend consume datos de un **backend WordPress + WooCommerce** a través 
 
 - [ ] **Configurador de PC** con validación de compatibilidad en tiempo real.
 - [x] **Checkout con Mercado Pago** (Checkout Pro vía API de Orders; la lógica vive en el backend).
-- [ ] **Creación de pedidos** en WooCommerce vía REST API.
-- [ ] **Página de confirmación** post-compra.
+- [x] **Creación de pedidos** en WooCommerce (endpoint propio del backend, sin claves REST en el frontend).
+- [x] **Página de confirmación** post-compra.
+- [x] **Cuentas de cliente**: compra solo con sesión (`/ingresar`, `/registro`) e historial en `/cuenta`.
 
 ### 📋 Próximas funcionalidades
 
-- [ ] **Autenticación de usuarios** (JWT).
-- [ ] **Historial de pedidos** (`/mi-cuenta`).
+- [ ] **Recuperación de contraseña** por correo (pendiente de configurar SMTP).
 - [ ] **Búsqueda de productos** con filtros.
 - [ ] **Chatbot de atención** (Tidio/Chatra).
 - [ ] **Blog SEO** con artículos educativos.
@@ -246,9 +246,11 @@ src/
 │   ├── tienda/page.tsx       # Catálogo
 │   ├── producto/[slug]/      # Ficha de producto
 │   ├── carrito/page.tsx      # Carrito
-│   ├── checkout/page.tsx     # Checkout
+│   ├── checkout/             # Checkout (exige sesión)
+│   ├── ingresar/page.tsx     # Inicio de sesión
+│   ├── cuenta/page.tsx       # Mi cuenta e historial de pedidos
 │   ├── arma-tu-pc/page.tsx   # Configurador
-│   └── api/orders/           # API Route para crear pedidos
+│   └── api/                  # orders, register, auth/login, auth/logout
 ├── components/               # Componentes reutilizables
 │   ├── Header.tsx
 │   ├── Footer.tsx

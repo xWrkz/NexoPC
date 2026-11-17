@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isMercadoPagoCheckoutUrl, orderSchema, OrderResponse, PaymentMethod } from "@/lib/checkout/schema";
 import { callStore } from "@/lib/checkout/backend";
+import { readSession } from "@/lib/account/session";
 import { clientIp, createRateLimiter, fieldErrors, isForeignOrigin, isJsonRequest, readBody } from "@/lib/http/request";
 
 export const runtime = "nodejs";
@@ -9,15 +10,17 @@ const MAX_BODY_BYTES = 32 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX = 10;
 const SERVICE_UNAVAILABLE = "El servicio de pedidos no está disponible en este momento.";
+const SESSION_REQUIRED = "Inicia sesión para completar tu compra.";
 const GENERIC_FAILURE = "No pudimos conectar con el servidor de la tienda. Inténtalo nuevamente en unos minutos.";
 
 const isRateLimited = createRateLimiter(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
 
 const error = (message: string, errors?: Record<string, string[]>, status = 400) =>
   NextResponse.json<OrderResponse>({ ok: false, message, errors }, { status });
+const sessionRequired = () => NextResponse.json<OrderResponse>({ ok: false, message: SESSION_REQUIRED, loginRequired: true }, { status: 401 });
 
 type BackendOrder = { orderId?: number; orderNumber?: string; status?: string; paymentMethod?: PaymentMethod; checkoutUrl?: string | null };
-type BackendError = { message?: string; data?: { fields?: Record<string, string[]> } };
+type BackendError = { code?: string; message?: string; data?: { fields?: Record<string, string[]> } };
 
 export async function POST(request: Request) {
   if (isForeignOrigin(request)) {
@@ -26,6 +29,10 @@ export async function POST(request: Request) {
   if (!isJsonRequest(request)) {
     return error("No pudimos leer los datos del pedido.", undefined, 415);
   }
+
+  // Solo compran clientes con cuenta: el pedido queda en su historial.
+  const session = await readSession();
+  if (!session) return sessionRequired();
 
   const rawBody = await readBody(request, MAX_BODY_BYTES);
   if (rawBody === null) {
@@ -51,7 +58,7 @@ export async function POST(request: Request) {
 
   try {
     // WordPress vuelve a validar productos, precios y stock con datos del catálogo, nunca con los del navegador.
-    const reply = await callStore("checkout", { method: "POST", body: parsed.data, clientIp: ip });
+    const reply = await callStore("checkout", { method: "POST", body: parsed.data, clientIp: ip, session });
     if (!reply) return error(SERVICE_UNAVAILABLE, undefined, 503);
 
     if (reply.status === 201) {
@@ -76,6 +83,7 @@ export async function POST(request: Request) {
     }
 
     const failure = (reply.data ?? {}) as BackendError;
+    if (reply.status === 401 && failure.code === "nexopc_session_invalid") return sessionRequired();
     // 409 (stock o precio), 422 (validación) y 503 traen mensajes pensados para el cliente.
     if ([409, 422].includes(reply.status) && failure.message) {
       return error(failure.message, failure.data?.fields, reply.status);

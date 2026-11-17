@@ -1,6 +1,15 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+
+const jar = vi.hoisted(() => ({ current: null as null | ReturnType<typeof import("@/test/cookieJar").createCookieJar> }));
+vi.mock("next/headers", async () => {
+  const { createCookieJar } = await import("@/test/cookieJar");
+  jar.current = createCookieJar();
+  return { cookies: jar.current.cookies };
+});
+
+const SESSION = `7.${"a".repeat(43)}`;
 
 const requestBody = {
   items: [{ productId: 11, quantity: 2 }],
@@ -26,6 +35,10 @@ const backendReplies = (status: number, body: unknown) => {
 };
 
 describe("POST /api/orders", () => {
+  beforeEach(() => {
+    jar.current!.values.clear();
+    jar.current!.values.set("nexopc_session", { value: SESSION });
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
     delete process.env.NEXT_PUBLIC_WORDPRESS_URL;
@@ -43,7 +56,41 @@ describe("POST /api/orders", () => {
     expect(url).toBe("https://woo.test/wp-json/nexopc/v1/checkout");
     expect(init.headers["X-NexoPC-Store-Secret"]).toBe(SECRET);
     expect(init.headers["X-NexoPC-Client-IP"]).toBe("203.0.113.50");
+    expect(init.headers["X-NexoPC-Session"]).toBe(SESSION);
     expect(JSON.parse(init.body).items).toEqual([{ productId: 11, quantity: 2 }]);
+  });
+
+  it("exige sesión antes de consultar el backend", async () => {
+    configureBackend();
+    jar.current!.values.clear();
+    const fetchMock = backendReplies(201, created);
+    const response = await POST(orderRequest(requestBody));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ ok: false, loginRequired: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ignora cookies de sesión con formato inválido", async () => {
+    configureBackend();
+    jar.current!.values.set("nexopc_session", { value: "7.abc;evil" });
+    const fetchMock = backendReplies(201, created);
+    expect((await POST(orderRequest(requestBody))).status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("pide volver a ingresar si WordPress rechaza la sesión", async () => {
+    configureBackend();
+    backendReplies(401, { code: "nexopc_session_invalid", message: "Tu sesión expiró.", data: { status: 401 } });
+    const response = await POST(orderRequest(requestBody));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ loginRequired: true });
+  });
+
+  it("no confunde un secreto rechazado con una sesión vencida", async () => {
+    configureBackend();
+    backendReplies(401, { code: "rest_forbidden", message: "No autorizado.", data: { status: 401 } });
+    const response = await POST(orderRequest(requestBody));
+    expect(response.status).toBe(502);
   });
 
   it("devuelve la URL de pago de Mercado Pago", async () => {

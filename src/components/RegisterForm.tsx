@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, LoaderCircle, UserPlus } from "lucide-react";
 import type { RegisterResponse } from "@/lib/account/schema";
 
@@ -19,7 +20,9 @@ const fields: Record<Field, { label: string; type: string; autoComplete: string;
   password: { label: "Contraseña", type: "password", autoComplete: "new-password", maxLength: 128, hint: "Mínimo 8 caracteres, con letras y números." },
 };
 
-export default function RegisterForm() {
+/** `next`: adónde volver tras crear la cuenta (por ejemplo el checkout). Sin él, se muestra la confirmación. */
+export default function RegisterForm({ next }: { next?: string }) {
+  const router = useRouter();
   const [form, setForm] = useState(initial);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [website, setWebsite] = useState("");
@@ -27,7 +30,7 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<null | { loggedIn: boolean }>(null);
 
   const clearError = (key: string) => {
     if (!errors[key]) return;
@@ -48,6 +51,7 @@ export default function RegisterForm() {
     setMessage("");
     setErrors({});
     setLoading(true);
+    let leaving = false;
     try {
       const response = await fetch("/api/register", {
         method: "POST",
@@ -60,11 +64,19 @@ export default function RegisterForm() {
         if (!data.ok) setErrors(data.errors ?? {});
         return;
       }
-      setDone(true);
+      const loggedIn = Boolean(data.loggedIn);
+      if (loggedIn && next) {
+        leaving = true;
+        router.replace(next);
+        router.refresh();
+        return;
+      }
+      setDone({ loggedIn });
+      router.refresh();
     } catch {
       setMessage("No pudimos conectarnos con el servidor. Inténtalo nuevamente.");
     } finally {
-      setLoading(false);
+      if (!leaving) setLoading(false);
     }
   };
 
@@ -72,8 +84,8 @@ export default function RegisterForm() {
     return <div className="auth-card text-center" role="status">
       <CheckCircle2 className="mx-auto text-emerald-400" size={40}/>
       <h2 className="font-display mt-4 text-2xl font-bold">¡Listo, {form.firstName.trim().split(" ")[0]}!</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-400">Tu cuenta quedó registrada con {form.email.trim().toLowerCase()}. Ya puedes seguir explorando la tienda.</p>
-      <div className="mt-6 flex flex-wrap justify-center gap-3"><Link href="/tienda" className="btn-primary focus-ring">Ver componentes</Link><Link href="/arma-tu-pc" className="btn-secondary focus-ring">Arma tu PC</Link></div>
+      <p className="mt-2 text-sm leading-6 text-slate-400">Tu cuenta quedó registrada con {form.email.trim().toLowerCase()}. {done.loggedIn ? "Ya iniciaste sesión." : "Ya puedes ingresar con tu correo y contraseña."}</p>
+      <div className="mt-6 flex flex-wrap justify-center gap-3"><Link href="/tienda" className="btn-primary focus-ring">Ver componentes</Link>{done.loggedIn ? <Link href="/cuenta" className="btn-secondary focus-ring">Ir a mi cuenta</Link> : <Link href={next ? `/ingresar?siguiente=${encodeURIComponent(next)}` : "/ingresar"} className="btn-secondary focus-ring">Ingresar</Link>}</div>
     </div>;
   }
 
@@ -111,5 +123,6 @@ export default function RegisterForm() {
     {errors.acceptTerms?.[0] ? <small className="mt-1 block text-xs text-rose-300" role="alert">{errors.acceptTerms[0]}</small> : null}
     {message ? <div className="commerce-warning" role="alert"><AlertCircle size={17}/>{message}</div> : null}
     <button type="submit" disabled={loading} className="btn-primary focus-ring mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60">{loading ? <><LoaderCircle className="animate-spin" size={18}/>Creando cuenta…</> : <><UserPlus size={18}/>Crear cuenta</>}</button>
+    <p className="mt-5 border-t border-white/8 pt-5 text-center text-sm text-slate-400">¿Ya tienes cuenta? <Link href={next ? `/ingresar?siguiente=${encodeURIComponent(next)}` : "/ingresar"} className="font-bold text-white underline underline-offset-4 hover:text-orange-300">Ingresa aquí</Link></p>
   </form>;
 }

@@ -35,5 +35,50 @@ export const registerSchema = z.object({
 
 export type RegisterRequest = z.input<typeof registerSchema>;
 export type RegisterResponse =
-  | { ok: true; message: string }
+  | { ok: true; message: string; loggedIn?: boolean }
   | { ok: false; message: string; errors?: Record<string, string[]> };
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().max(120, "El correo es demasiado largo.").email("Ingresa un correo válido."),
+  password: z.string().min(1, "Ingresa tu contraseña.").max(128, "La contraseña es demasiado larga."),
+});
+
+export type LoginResponse =
+  | { ok: true; firstName: string }
+  | { ok: false; message: string; errors?: Record<string, string[]> };
+
+export type Customer = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address1: string;
+  city: string;
+  region: string;
+  postcode: string;
+};
+
+export type AccountOrder = {
+  id: number;
+  number: string;
+  orderKey: string;
+  createdAt: string | null;
+  paidAt: string | null;
+  status: string;
+  paid: boolean;
+  paymentMethod: string;
+  paymentMethodTitle: string;
+  mpStatusDetail: string;
+  total: string;
+  items: { name: string; quantity: number; total: string; image: string | null; slug: string | null }[];
+};
+
+/**
+ * Destino tras iniciar sesión: solo rutas internas. Se rechazan "//x", "/\x", URLs absolutas y caracteres
+ * de control (los navegadores eliminan tabs y saltos de línea, y "/\t/x" terminaría siendo "//x").
+ */
+export function safeNext(value: unknown, fallback = "/cuenta") {
+  if (typeof value !== "string" || value.length > 200 || !/^\/[A-Za-z0-9\-._~/?=&%]*$/.test(value) || value.startsWith("//")) return fallback;
+  return value;
+}
