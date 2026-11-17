@@ -14,7 +14,7 @@ const SESSION = `7.${"a".repeat(43)}`;
 const requestBody = {
   items: [{ productId: 11, quantity: 2 }],
   paymentMethod: "bacs",
-  customer: { firstName: "Kevin", lastName: "Ventura", email: "kevin@example.com", phone: "999999999", address1: "Av. Test 123", city: "Trujillo", region: "La Libertad", postcode: "13001" },
+  customer: { firstName: "Kevin", lastName: "Ventura", email: "kevin@example.com", phone: "999999999", address1: "Av. Test 123", city: "Trujillo", region: "LAL", postcode: "13001" },
 };
 
 const SECRET = "s".repeat(40);

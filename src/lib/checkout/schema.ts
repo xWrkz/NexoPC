@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REGION_CODES } from "@/lib/checkout/regions";
 export const MAX_ORDER_LINES = 50;
 export const PAYMENT_METHODS = ["bacs", "cod", "mercadopago"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -27,8 +28,8 @@ export const orderSchema = z.object({
       .regex(/^[0-9+\-\s()]{7,25}$/, "Ingresa un teléfono válido."),
     address1: text,
     city: text,
-    region: text,
-    postcode: z.string().trim().min(3, "Completa el código postal o distrito.").max(60, "El código postal o distrito es demasiado largo."),
+    region: z.enum(REGION_CODES, { error: "Elige tu región." }),
+    postcode: z.string().trim().max(10, "El código postal es demasiado largo.").regex(/^\d*$/, "Usa solo números.").optional(),
     notes: z.string().trim().max(500).optional(),
   }),
 });

@@ -892,3 +892,7 @@ body { color: var(--text); font-family: var(--font-archivo), Arial, sans-serif; 
 .order-status[data-tone="warn"] { color: var(--warn); }
 .order-status[data-tone="bad"] { color: var(--bad); }
 .order-status[data-tone="muted"] { color: var(--muted); }
+
+/* Selector nativo de región en el checkout */
+select.field { appearance: none; padding-right: 2.4rem; background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 fill=%27none%27 stroke=%27%23aba8a1%27 stroke-width=%272%27%3E%3Cpath d=%27m4 6 4 4 4-4%27/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .8rem center; }
+select.field option { background: #121211; color: #fafafa; }

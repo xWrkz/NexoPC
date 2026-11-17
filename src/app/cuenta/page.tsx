@@ -8,13 +8,14 @@ import { loadCustomer, loadOrders, readSession } from "@/lib/account/session";
 import { canCheckPayment, formatOrderDate, orderStatus } from "@/lib/account/orders";
 import type { AccountOrder, Customer } from "@/lib/account/schema";
 import { formatPrice } from "@/lib/utils/formatPrice";
+import { regionCode, regionName } from "@/lib/checkout/regions";
 
 export const metadata: Metadata = { title: "Mi cuenta", robots: { index: false } };
 
 const LOGIN = "/ingresar?siguiente=/cuenta";
 
 function Profile({ customer }: { customer: Customer }) {
-  const address = [customer.address1, customer.city, customer.region].filter(Boolean).join(", ");
+  const address = [customer.address1, customer.city, customer.region ? regionName(regionCode(customer.region) || customer.region) : ""].filter(Boolean).join(", ");
   const rows = [
     ["Nombre", `${customer.firstName} ${customer.lastName}`.trim()],
     ["Correo", customer.email],
