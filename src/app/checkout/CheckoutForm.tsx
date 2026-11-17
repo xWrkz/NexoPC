@@ -9,20 +9,21 @@ import { useCartStore } from "@/store/cartStore";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import { isMercadoPagoCheckoutUrl, type PaymentMethod } from "@/lib/checkout/schema";
 import type { Customer } from "@/lib/account/schema";
+import { DEFAULT_REGION, PE_REGIONS, regionCode } from "@/lib/checkout/regions";
 
 type Form = { firstName: string; lastName: string; email: string; phone: string; address1: string; city: string; region: string; postcode: string; notes: string };
-const initial: Form = { firstName: "", lastName: "", email: "", phone: "", address1: "", city: "", region: "La Libertad", postcode: "", notes: "" };
+const initial: Form = { firstName: "", lastName: "", email: "", phone: "", address1: "", city: "", region: DEFAULT_REGION, postcode: "", notes: "" };
 const fieldMeta: Partial<Record<keyof Form, { autoComplete: string; required?: boolean }>> = {
   firstName: { autoComplete: "given-name", required: true }, lastName: { autoComplete: "family-name", required: true },
   email: { autoComplete: "email", required: true }, phone: { autoComplete: "tel", required: true },
   address1: { autoComplete: "street-address", required: true }, city: { autoComplete: "address-level2", required: true },
-  region: { autoComplete: "address-level1", required: true }, postcode: { autoComplete: "postal-code", required: true },
+  region: { autoComplete: "address-level1", required: true }, postcode: { autoComplete: "postal-code" },
 };
 
 const fromCustomer = (customer: Customer | null): Form => customer ? {
   ...initial,
   firstName: customer.firstName, lastName: customer.lastName, email: customer.email, phone: customer.phone,
-  address1: customer.address1, city: customer.city, region: customer.region || initial.region, postcode: customer.postcode,
+  address1: customer.address1, city: customer.city, region: regionCode(customer.region) || initial.region, postcode: customer.postcode,
 } : initial;
 
 /** `customer`: cliente con sesión (la página ya exige sesión); sus datos precargan el formulario. */
@@ -69,7 +70,7 @@ export default function CheckoutForm({ customer }: { customer: Customer | null }
     finally { if (!redirecting) setLoading(false); }
   };
 
-  const field = (key: keyof Form, label: string, type = "text") => {
+  const field = (key: keyof Form, label: React.ReactNode, type = "text") => {
     const errorId = `${key}-error`; const meta = fieldMeta[key];
     return <label className="checkout-field" htmlFor={key}><span>{label}{meta?.required ? <em aria-hidden="true">*</em> : null}</span><input id={key} name={key} type={type} required={meta?.required} readOnly={key === "email" && Boolean(customer?.email)} autoComplete={meta?.autoComplete} value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className={`field ${errors[key]?.length ? "border-rose-400" : ""}`} aria-invalid={Boolean(errors[key]?.length)} aria-describedby={errors[key]?.length ? errorId : undefined}/>{errors[key]?.[0] ? <small id={errorId} role="alert">{errors[key][0]}</small> : null}</label>;
   };
@@ -83,7 +84,7 @@ export default function CheckoutForm({ customer }: { customer: Customer | null }
     <form onSubmit={submit} className="mt-7 grid gap-7 lg:grid-cols-[1.15fr_.85fr]">
       <div className="space-y-6">
         <section className="panel checkout-section"><div className="checkout-section-head"><span>01</span><div><h2>Tus datos</h2><p>Información para comunicarnos contigo.</p></div></div><div className="mt-5 grid gap-4 sm:grid-cols-2">{field("firstName", "Nombres")}{field("lastName", "Apellidos")}<div>{field("email", "Correo electrónico", "email")}{customer?.email ? <i className="mt-1 block text-xs not-italic text-slate-500">Es el correo de tu cuenta.</i> : null}</div>{field("phone", "Teléfono", "tel")}</div></section>
-        <section className="panel checkout-section"><div className="checkout-section-head"><span>02</span><div><h2>Entrega</h2><p>Dirección donde deseas recibir el pedido.</p></div></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2">{field("address1", "Dirección")}</div>{field("city", "Ciudad")}{field("region", "Región")}{field("postcode", "Código postal o distrito")}</div><label className="checkout-field mt-4" htmlFor="notes"><span>Nota para el pedido <i>Opcional</i></span><textarea id="notes" name="notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={3} className="field resize-y" placeholder="Referencia, horario preferido u otra indicación."/></label></section>
+        <section className="panel checkout-section"><div className="checkout-section-head"><span>02</span><div><h2>Entrega</h2><p>Dirección donde deseas recibir el pedido.</p></div></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2">{field("address1", "Dirección")}</div>{field("city", "Distrito")}<label className="checkout-field" htmlFor="region"><span>Región<em aria-hidden="true">*</em></span><select id="region" name="region" required autoComplete="address-level1" value={form.region} onChange={(event) => setForm({ ...form, region: event.target.value })} className={`field ${errors.region?.length ? "border-rose-400" : ""}`} aria-invalid={Boolean(errors.region?.length)} aria-describedby={errors.region?.length ? "region-error" : undefined}>{PE_REGIONS.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}</select>{errors.region?.[0] ? <small id="region-error" role="alert">{errors.region[0]}</small> : null}</label>{field("postcode", <>Código postal <i>Opcional</i></>)}</div><label className="checkout-field mt-4" htmlFor="notes"><span>Nota para el pedido <i>Opcional</i></span><textarea id="notes" name="notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={3} className="field resize-y" placeholder="Referencia, horario preferido u otra indicación."/></label></section>
         <section className="panel checkout-section"><div className="checkout-section-head"><span>03</span><div><h2>Forma de pago</h2><p>Elige cómo prefieres continuar.</p></div></div><div className="mt-5 grid gap-3">{methods.map(({ value, Icon, title, text }) => { const active = method === value; return <button type="button" key={value} onClick={() => setMethod(value)} aria-pressed={active} className={`payment-method focus-ring ${active ? "payment-method-active" : ""}`}><Icon size={20}/><span><strong>{title}</strong><small>{text}</small></span>{active ? <CheckCircle2 className="ml-auto text-orange-300" size={18}/> : null}</button>; })}</div></section>
       </div>
       <aside className="panel order-summary"><p className="eyebrow">Resumen del pedido</p><div className="mt-5 max-h-80 space-y-2.5 overflow-auto pr-1">
