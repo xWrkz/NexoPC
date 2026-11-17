@@ -8,96 +8,96 @@ const requestBody = {
   customer: { firstName: "Kevin", lastName: "Ventura", email: "kevin@example.com", phone: "999999999", address1: "Av. Test 123", city: "Trujillo", region: "La Libertad", postcode: "13001" },
 };
 
-const product = { id: 11, name: "CPU", status: "publish", purchasable: true, stock_status: "instock", stock_quantity: 3, manage_stock: true, price: "500" };
+const SECRET = "s".repeat(40);
+const created = { ok: true, orderId: 90, orderNumber: "90", orderKey: "wc_order_abc123", status: "on-hold", paymentMethod: "bacs", checkoutUrl: null };
 
 const orderRequest = (body: unknown, headers: Record<string, string> = {}) =>
   new Request("http://localhost/api/orders", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
 
-const configureWoo = () => {
+const configureBackend = () => {
   process.env.NEXT_PUBLIC_WORDPRESS_URL = "https://woo.test";
-  process.env.WC_CONSUMER_KEY = "key";
-  process.env.WC_CONSUMER_SECRET = "secret";
+  process.env.NEXOPC_SIGNUP_SECRET = SECRET;
+};
+
+const backendReplies = (status: number, body: unknown) => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 };
 
 describe("POST /api/orders", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete process.env.NEXT_PUBLIC_WORDPRESS_URL;
-    delete process.env.WC_CONSUMER_KEY;
-    delete process.env.WC_CONSUMER_SECRET;
+    delete process.env.NEXOPC_SIGNUP_SECRET;
   });
 
-  it("crea un pedido pendiente solo después de comprobar producto y stock", async () => {
-    configureWoo();
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(product), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 90, number: "90", status: "on-hold" }), { status: 201 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const response = await POST(orderRequest(requestBody));
+  it("registra el pedido en el backend con el secreto compartido y sin usar precios del navegador", async () => {
+    configureBackend();
+    const fetchMock = backendReplies(201, created);
+    const response = await POST(orderRequest({ ...requestBody, items: [{ productId: 11, quantity: 2, price: 1 }] }, { "X-Forwarded-For": "203.0.113.50" }));
     expect(response.status).toBe(201);
-    expect((await response.json()).ok).toBe(true);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).set_paid).toBe(false);
+    expect(await response.json()).toMatchObject({ ok: true, orderNumber: "90", paymentMethod: "bacs" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://woo.test/wp-json/nexopc/v1/checkout");
+    expect(init.headers["X-NexoPC-Store-Secret"]).toBe(SECRET);
+    expect(init.headers["X-NexoPC-Client-IP"]).toBe("203.0.113.50");
+    expect(JSON.parse(init.body).items).toEqual([{ productId: 11, quantity: 2 }]);
   });
 
-  it("detiene el pedido cuando no hay stock", async () => {
-    configureWoo();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...product, stock_status: "outofstock", stock_quantity: 0 }), { status: 200 })));
+  it("devuelve la URL de pago de Mercado Pago", async () => {
+    configureBackend();
+    const checkoutUrl = "https://www.mercadopago.com.pe/checkout/v1/redirect?order_id=ORDTST01";
+    backendReplies(201, { ...created, status: "pending", paymentMethod: "mercadopago", checkoutUrl });
+    const response = await POST(orderRequest({ ...requestBody, paymentMethod: "mercadopago" }));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ ok: true, paymentMethod: "mercadopago", checkoutUrl });
+  });
+
+  it("no redirige a URLs de pago ajenas a Mercado Pago", async () => {
+    configureBackend();
+    backendReplies(201, { ...created, paymentMethod: "mercadopago", checkoutUrl: "https://mercadopago.com.evil.example/pay" });
+    const response = await POST(orderRequest({ ...requestBody, paymentMethod: "mercadopago" }));
+    expect(response.status).toBe(502);
+    expect(await response.json()).not.toHaveProperty("checkoutUrl");
+  });
+
+  it("transmite los mensajes de stock del backend", async () => {
+    configureBackend();
+    backendReplies(409, { code: "nexopc_checkout_error", message: "Solo quedan 1 unidades de CPU.", data: { status: 409 } });
     const response = await POST(orderRequest(requestBody));
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ ok: false });
-  });
-
-  it("suma cantidades de líneas duplicadas del mismo producto para impedir sobrepasar el stock", async () => {
-    configureWoo();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...product, stock_quantity: 1 }), { status: 200 })));
-    const duplicateLinesBody = {
-      ...requestBody,
-      items: [
-        { productId: 11, quantity: 1 },
-        { productId: 11, quantity: 1 },
-      ],
-    };
-    const response = await POST(orderRequest(duplicateLinesBody));
     expect(response.status).toBe(409);
     expect((await response.json()).message).toContain("Solo quedan 1 unidades");
   });
 
-  it.each([
-    ["no publicado", { status: "draft" }],
-    ["no comprable", { purchasable: false }],
-    ["sin precio", { price: "" }],
-  ])("no crea el pedido con un producto %s", async (_, overrides) => {
-    configureWoo();
-    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ ...product, ...overrides }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("transmite los errores por campo del backend", async () => {
+    configureBackend();
+    backendReplies(422, { code: "nexopc_checkout_error", message: "Revisa los campos marcados antes de continuar.", data: { status: 422, fields: { email: ["Ingresa un correo válido."] } } });
     const response = await POST(orderRequest(requestBody));
-    expect(response.status).toBe(409);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(422);
+    expect((await response.json()).errors).toEqual({ email: ["Ingresa un correo válido."] });
   });
 
-  it("no crea el pedido si la variación pertenece a un producto no publicado", async () => {
-    configureWoo();
-    const fetchMock = vi.fn().mockImplementation(async (url: string) => new Response(JSON.stringify(url.includes("/variations/") ? product : { ...product, status: "private" }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const response = await POST(orderRequest({ ...requestBody, items: [{ productId: 11, variationId: 12, quantity: 1 }] }));
-    expect(response.status).toBe(409);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("no expone el mensaje interno de WooCommerce", async () => {
-    configureWoo();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: "woocommerce_rest_cannot_view", message: "Lo sentimos, no puedes ver recursos." }), { status: 401 })));
+  it("no expone mensajes internos del backend", async () => {
+    configureBackend();
+    backendReplies(500, { code: "internal", message: "Fatal error en wp-includes/class-wpdb.php" });
     const response = await POST(orderRequest(requestBody));
     expect(response.status).toBe(502);
-    expect((await response.json()).message).not.toContain("recursos");
+    expect((await response.json()).message).not.toContain("wpdb");
   });
 
-  it("indica que el producto ya no está disponible cuando WooCommerce responde 404", async () => {
-    configureWoo();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: "woocommerce_rest_product_invalid_id", message: "Invalid ID." }), { status: 404 })));
+  it("responde 503 si falta la configuración del backend", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
     const response = await POST(orderRequest(requestBody));
-    expect(response.status).toBe(409);
-    expect((await response.json()).message).toContain("ya no está disponible");
+    expect(response.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("acepta solo los métodos de pago conocidos", async () => {
+    const response = await POST(orderRequest({ ...requestBody, paymentMethod: "culqi" }));
+    expect(response.status).toBe(422);
   });
 
   it("devuelve los errores por campo que usa el checkout", async () => {
@@ -106,8 +106,8 @@ describe("POST /api/orders", () => {
     expect((await response.json()).errors.phone).toEqual(["Ingresa un teléfono válido."]);
   });
 
-  it("rechaza pedidos con demasiadas líneas sin consultar WooCommerce", async () => {
-    configureWoo();
+  it("rechaza pedidos con demasiadas líneas sin consultar el backend", async () => {
+    configureBackend();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const items = Array.from({ length: 51 }, (_, index) => ({ productId: index + 1, quantity: 1 }));

@@ -1,81 +1,23 @@
 import { NextResponse } from "next/server";
-import { orderSchema, OrderResponse } from "@/lib/checkout/schema";
+import { isMercadoPagoCheckoutUrl, orderSchema, OrderResponse, PaymentMethod } from "@/lib/checkout/schema";
+import { callStore } from "@/lib/checkout/backend";
 import { clientIp, createRateLimiter, fieldErrors, isForeignOrigin, isJsonRequest, readBody } from "@/lib/http/request";
 
 export const runtime = "nodejs";
 
-type WooProduct = {
-  id: number;
-  type?: string;
-  status?: string;
-  purchasable?: boolean;
-  price: string;
-  stock_status: string;
-  stock_quantity: number | null;
-  manage_stock: boolean;
-  name: string;
-};
-
 const MAX_BODY_BYTES = 32 * 1024;
-const WOO_TIMEOUT_MS = 10_000;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX = 10;
 const SERVICE_UNAVAILABLE = "El servicio de pedidos no está disponible en este momento.";
-const GENERIC_FAILURE = "No pudimos procesar tu solicitud en este momento.";
-const UNAVAILABLE_PRODUCT = "Uno de los productos de tu pedido ya no está disponible.";
-
-class ProductUnavailableError extends Error {}
+const GENERIC_FAILURE = "No pudimos conectar con el servidor de la tienda. Inténtalo nuevamente en unos minutos.";
 
 const isRateLimited = createRateLimiter(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
 
 const error = (message: string, errors?: Record<string, string[]>, status = 400) =>
   NextResponse.json<OrderResponse>({ ok: false, message, errors }, { status });
 
-const config = () => {
-  const url = process.env.WORDPRESS_URL || process.env.NEXT_PUBLIC_WORDPRESS_URL;
-  const key = process.env.WC_CONSUMER_KEY;
-  const secret = process.env.WC_CONSUMER_SECRET;
-
-  if (!url || !key || !secret) {
-    console.error("[Orders API] Credenciales de WooCommerce incompletas:", {
-      hasUrl: Boolean(url),
-      hasConsumerKey: Boolean(key),
-      hasConsumerSecret: Boolean(secret),
-    });
-    return null;
-  }
-
-  return {
-    url: url.replace(/\/$/, ""),
-    auth: `Basic ${Buffer.from(`${key}:${secret}`).toString("base64")}`,
-  };
-};
-
-async function woo(path: string, init: RequestInit = {}) {
-  const settings = config();
-  if (!settings) {
-    throw new Error(SERVICE_UNAVAILABLE);
-  }
-
-  const response = await fetch(`${settings.url}/wp-json/wc/v3/${path}`, {
-    ...init,
-    headers: {
-      Authorization: settings.auth,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(WOO_TIMEOUT_MS),
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    console.error("[Orders API] WooCommerce rechazó la solicitud:", { path, status: response.status, code: data?.code, message: data?.message });
-    if (response.status === 404) throw new ProductUnavailableError(UNAVAILABLE_PRODUCT);
-    throw new Error(GENERIC_FAILURE);
-  }
-  return data;
-}
+type BackendOrder = { orderId?: number; orderNumber?: string; status?: string; paymentMethod?: PaymentMethod; checkoutUrl?: string | null };
+type BackendError = { message?: string; data?: { fields?: Record<string, string[]> } };
 
 export async function POST(request: Request) {
   if (isForeignOrigin(request)) {
@@ -102,122 +44,47 @@ export async function POST(request: Request) {
     return error("Revisa los campos marcados antes de continuar.", fieldErrors(parsed.error.issues, "customer"), 422);
   }
 
-  if (isRateLimited(clientIp(request))) {
+  const ip = clientIp(request);
+  if (isRateLimited(ip)) {
     return error("Recibimos demasiados intentos. Espera unos minutos antes de volver a intentarlo.", undefined, 429);
   }
 
   try {
-    const aggregatedMap = new Map<string, { productId: number; variationId?: number; quantity: number }>();
-    for (const item of parsed.data.items) {
-      const key = `${item.productId}:${item.variationId ?? 0}`;
-      const existing = aggregatedMap.get(key);
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        aggregatedMap.set(key, { ...item });
+    // WordPress vuelve a validar productos, precios y stock con datos del catálogo, nunca con los del navegador.
+    const reply = await callStore("checkout", { method: "POST", body: parsed.data, clientIp: ip });
+    if (!reply) return error(SERVICE_UNAVAILABLE, undefined, 503);
+
+    if (reply.status === 201) {
+      const order = (reply.data ?? {}) as BackendOrder;
+      const isMercadoPago = parsed.data.paymentMethod === "mercadopago";
+      if (!order.orderId || !order.orderNumber || (isMercadoPago && !isMercadoPagoCheckoutUrl(order.checkoutUrl))) {
+        console.error("[Orders API] Respuesta inesperada del backend:", { hasOrder: Boolean(order.orderId), method: parsed.data.paymentMethod });
+        return error(GENERIC_FAILURE, undefined, 502);
       }
-    }
-
-    const uniqueItems = Array.from(aggregatedMap.values());
-    for (const item of uniqueItems) {
-      if (item.quantity > 20) {
-        return error("No puedes solicitar más de 20 unidades de un mismo producto.", { items: ["No puedes solicitar más de 20 unidades de un mismo producto."] }, 422);
-      }
-    }
-
-    const fetchedProducts = await Promise.all(
-      uniqueItems.map(async (item) => {
-        const path = item.variationId
-          ? `products/${item.productId}/variations/${item.variationId}`
-          : `products/${item.productId}`;
-        const product = (await woo(path)) as WooProduct;
-        const parent = item.variationId ? ((await woo(`products/${item.productId}`)) as WooProduct) : product;
-        return { item, product, parent };
-      })
-    );
-
-    const items = [];
-    for (const { item, product, parent } of fetchedProducts) {
-      if (parent.status !== "publish" || product.status !== "publish") {
-        return error(UNAVAILABLE_PRODUCT, undefined, 409);
-      }
-
-      if (!item.variationId && product.type === "variable") {
-        return error(`Selecciona una variante válida para ${product.name}.`, undefined, 422);
-      }
-
-      if (product.stock_status !== "instock") {
-        return error(`${product.name} ya no está disponible.`, undefined, 409);
-      }
-
-      if (product.purchasable !== true || !(Number(product.price) > 0)) {
-        return error(`${product.name} no tiene un precio confirmado.`, undefined, 409);
-      }
-
-      if (product.manage_stock && product.stock_quantity !== null && product.stock_quantity < item.quantity) {
-        return error(`Solo quedan ${product.stock_quantity} unidades de ${product.name}.`, undefined, 409);
-      }
-
-      items.push({
-        product_id: item.productId,
-        ...(item.variationId ? { variation_id: item.variationId } : {}),
-        quantity: item.quantity,
-      });
-    }
-
-    const { customer, paymentMethod } = parsed.data;
-    const order = (await woo("orders", {
-      method: "POST",
-      body: JSON.stringify({
-        payment_method: paymentMethod,
-        payment_method_title:
-          paymentMethod === "bacs" ? "Transferencia bancaria" : "Pago contraentrega",
-        set_paid: false,
-        status: "on-hold",
-        billing: {
-          first_name: customer.firstName,
-          last_name: customer.lastName,
-          email: customer.email,
-          phone: customer.phone,
-          address_1: customer.address1,
-          city: customer.city,
-          state: customer.region,
-          postcode: customer.postcode,
-          country: "PE",
+      return NextResponse.json<OrderResponse>(
+        {
+          ok: true,
+          orderId: order.orderId,
+          orderNumber: order.orderNumber,
+          status: order.status ?? "pending",
+          paymentMethod: parsed.data.paymentMethod,
+          ...(isMercadoPago ? { checkoutUrl: order.checkoutUrl as string } : {}),
+          message: isMercadoPago ? "Te llevamos a Mercado Pago para completar el pago." : "Tu pedido fue registrado correctamente.",
         },
-        shipping: {
-          first_name: customer.firstName,
-          last_name: customer.lastName,
-          address_1: customer.address1,
-          city: customer.city,
-          state: customer.region,
-          postcode: customer.postcode,
-          country: "PE",
-        },
-        customer_note: customer.notes ?? "",
-        line_items: items,
-      }),
-    })) as { id: number; number: string; status: string };
+        { status: 201 }
+      );
+    }
 
-    return NextResponse.json<OrderResponse>(
-      {
-        ok: true,
-        orderId: order.id,
-        orderNumber: order.number,
-        status: order.status,
-        paymentMethod,
-        message: "Tu pedido fue registrado correctamente.",
-      },
-      { status: 201 }
-    );
+    const failure = (reply.data ?? {}) as BackendError;
+    // 409 (stock o precio), 422 (validación) y 503 traen mensajes pensados para el cliente.
+    if ([409, 422].includes(reply.status) && failure.message) {
+      return error(failure.message, failure.data?.fields, reply.status);
+    }
+    if (reply.status === 503) return error(failure.message || SERVICE_UNAVAILABLE, undefined, 503);
+    console.error("[Orders API] El backend rechazó el pedido:", { status: reply.status });
+    return error(GENERIC_FAILURE, undefined, 502);
   } catch (cause) {
-    console.error("[Orders API] Error al registrar pedido:", cause);
-    if (cause instanceof ProductUnavailableError) {
-      return error(cause.message, undefined, 409);
-    }
-    if (cause instanceof Error && cause.message === SERVICE_UNAVAILABLE) {
-      return error(SERVICE_UNAVAILABLE, undefined, 503);
-    }
-    return error("No pudimos conectar con el servidor de la tienda. Inténtalo nuevamente en unos minutos.", undefined, 502);
+    console.error("[Orders API] Error al conectar con el backend:", cause);
+    return error(GENERIC_FAILURE, undefined, 502);
   }
 }
