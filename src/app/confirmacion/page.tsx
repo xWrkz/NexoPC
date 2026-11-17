@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Estado del pedido" };
 type Params = { numero?: string; metodo?: string; pedido?: string; clave?: string };
 type Outcome = "paid" | "pending" | "review" | "failed" | "unknown";
 
-const SUPPORT = "Guarda el número de pedido. Si necesitas ayuda, escríbenos a contacto.nexopc@gmail.com.";
+const SUPPORT = "Puedes seguir el pedido en Mi cuenta. Si necesitas ayuda, escríbenos a contacto.nexopc@gmail.com.";
 
 async function loadOrder(pedido?: string, clave?: string): Promise<OrderStatus | null> {
   if (!pedido || !clave || !/^\d{1,12}$/.test(pedido) || !/^wc_order_[A-Za-z0-9]{6,40}$/.test(clave)) return null;
@@ -88,7 +88,7 @@ export default async function Confirmacion({ searchParams }: { searchParams: Pro
         title={text.title}
         actions={
           outcome === "paid" || outcome === "review" ? (
-            <><Link href="/tienda" className="btn-primary focus-ring">Seguir explorando</Link><Link href="/" className="btn-secondary focus-ring">Volver al inicio</Link></>
+            <><Link href="/tienda" className="btn-primary focus-ring">Seguir explorando</Link><Link href="/cuenta" className="btn-secondary focus-ring">Ver mis pedidos</Link></>
           ) : outcome === "pending" ? (
             <><Link href={refreshHref} prefetch={false} className="btn-primary focus-ring"><RefreshCw size={17} />Actualizar estado</Link><Link href="/carrito" className="btn-secondary focus-ring">Ver carrito</Link></>
           ) : (
@@ -114,7 +114,7 @@ export default async function Confirmacion({ searchParams }: { searchParams: Pro
       icon={<CheckCircle2 className="mx-auto mt-8 text-emerald-300" size={48} />}
       eyebrow="Pedido registrado"
       title="Tu solicitud está en marcha"
-      actions={<><Link href="/tienda" className="btn-primary focus-ring">Seguir explorando</Link><Link href="/" className="btn-secondary focus-ring">Volver al inicio</Link></>}
+      actions={<><Link href="/tienda" className="btn-primary focus-ring">Seguir explorando</Link><Link href="/cuenta" className="btn-secondary focus-ring">Ver mis pedidos</Link></>}
     >
       <p className="mt-4 text-slate-400">Pedido <strong className="text-white">#{numero}</strong>. Ahora coordinaremos contigo los siguientes pasos.</p>
       <div className="mt-7 rounded-xl bg-white/[.035] p-4 text-left text-sm leading-6 text-slate-300">

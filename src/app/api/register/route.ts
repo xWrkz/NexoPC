@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { registerSchema, RegisterResponse } from "@/lib/account/schema";
+import { isSessionValue, startSession } from "@/lib/account/session";
+import { callStore } from "@/lib/checkout/backend";
 import { clientIp, createRateLimiter, fieldErrors, isForeignOrigin, isJsonRequest, readBody } from "@/lib/http/request";
 
 export const runtime = "nodejs";
@@ -23,6 +25,20 @@ const backendConfig = () => {
   }
   return { url: url.replace(/\/$/, ""), secret };
 };
+
+/** Tras crear la cuenta inicia sesión; si falla, la cuenta ya existe y el cliente puede ingresar a mano. */
+async function autoLogin(email: string, password: string, ip: string | null) {
+  try {
+    const login = await callStore("customers/login", { method: "POST", body: { email, password }, clientIp: ip });
+    const data = (login?.data ?? {}) as { session?: unknown; expiresAt?: string };
+    if (login?.status !== 200 || !isSessionValue(data.session)) return false;
+    await startSession(data.session, data.expiresAt);
+    return true;
+  } catch (cause) {
+    console.error("[Register API] No se pudo iniciar la sesión tras el registro:", cause);
+    return false;
+  }
+}
 
 export async function POST(request: Request) {
   if (isForeignOrigin(request)) return error("Solicitud no válida.", 403);
@@ -66,7 +82,7 @@ export async function POST(request: Request) {
     });
     const data = (await response.json().catch(() => null)) as { message?: string; data?: { fields?: Record<string, string[]> } } | null;
 
-    if (response.ok) return reply({ ok: true, message: SUCCESS_MESSAGE }, 201);
+    if (response.ok) return reply({ ok: true, message: SUCCESS_MESSAGE, loggedIn: await autoLogin(parsed.data.email, parsed.data.password, ip) }, 201);
 
     // 409 (duplicado), 422 (validación) y 429 traen mensajes pensados para el cliente.
     if ([409, 422, 429].includes(response.status) && data?.message) {

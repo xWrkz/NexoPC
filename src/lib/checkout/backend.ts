@@ -15,7 +15,9 @@ export const storeBackend = () => {
 
 export type BackendReply = { status: number; data: Record<string, unknown> | null };
 
-export async function callStore(path: string, init: { method?: string; body?: unknown; clientIp?: string | null } = {}): Promise<BackendReply | null> {
+type StoreInit = { method?: string; body?: unknown; clientIp?: string | null; session?: string | null };
+
+export async function callStore(path: string, init: StoreInit = {}): Promise<BackendReply | null> {
   const backend = storeBackend();
   if (!backend) return null;
   const response = await fetch(`${backend.url}/wp-json/nexopc/v1/${path}`, {
@@ -24,6 +26,7 @@ export async function callStore(path: string, init: { method?: string; body?: un
       "Content-Type": "application/json",
       "X-NexoPC-Store-Secret": backend.secret,
       ...(init.clientIp ? { "X-NexoPC-Client-IP": init.clientIp } : {}),
+      ...(init.session ? { "X-NexoPC-Session": init.session } : {}),
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
     cache: "no-store",

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Check } from "lucide-react";
 import RegisterForm from "@/components/RegisterForm";
+import { safeNext } from "@/lib/account/schema";
 
 export const metadata: Metadata = {
   title: "Crear cuenta",
@@ -8,11 +9,14 @@ export const metadata: Metadata = {
 };
 
 const perks = [
-  "Te identificamos al instante cuando nos escribas o hagas un pedido.",
+  "Compra con tus datos ya completados y revisa el estado de tus pedidos.",
+  "Te identificamos al instante cuando nos escribas.",
   "Asesoría personalizada para elegir o armar tu PC.",
 ];
 
-export default function RegisterPage() {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ siguiente?: string }> }) {
+  const { siguiente } = await searchParams;
+  const next = siguiente ? safeNext(siguiente) : undefined;
   return <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[.85fr_1.15fr] lg:items-start lg:py-20">
     <div className="lg:pt-6">
       <p className="eyebrow">Tu cuenta NexoPC</p>
@@ -21,6 +25,6 @@ export default function RegisterPage() {
       <ul className="mt-8 space-y-3">{perks.map((perk) => <li key={perk} className="flex items-start gap-3 text-sm text-slate-300"><Check size={18} className="mt-0.5 shrink-0 text-emerald-400"/>{perk}</li>)}</ul>
       <p className="mt-8 max-w-md text-xs leading-5 text-slate-500">Usamos tu DNI y celular solo para identificarte en tus pedidos y comunicarnos contigo. No los compartimos con terceros.</p>
     </div>
-    <RegisterForm/>
+    <RegisterForm next={next}/>
   </div>;
 }

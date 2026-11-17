@@ -35,7 +35,7 @@ export const orderSchema = z.object({
 export type OrderRequest = z.infer<typeof orderSchema>;
 export type OrderResponse =
   | { ok: true; orderId: number; orderNumber: string; status: string; paymentMethod: PaymentMethod; checkoutUrl?: string; message: string }
-  | { ok: false; message: string; errors?: Record<string, string[]> };
+  | { ok: false; message: string; errors?: Record<string, string[]>; loginRequired?: boolean };
 
 /** Estado que la página de confirmación muestra tras volver de Mercado Pago. */
 export type OrderStatus = { orderNumber: string; status: string; paymentMethod: string; paid: boolean; total: string; mpStatus?: string; mpStatusDetail?: string };
