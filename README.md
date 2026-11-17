@@ -43,7 +43,7 @@
 | 🔧 **Configurador inteligente** | Valida compatibilidad entre componentes (socket, tipo RAM, TDP, dimensiones) en tiempo real. |
 | 🎥 **Certificado en video** | Cada PC ensamblada se entrega con un video de pruebas de estrés grabado. |
 | 📋 **SLA de postventa visible** | Plazos de garantía, entrega y canal de reclamo visibles antes de comprar. |
-| 💳 **Pagos locales** | Integración con Culqi (Yape, Plin, tarjetas, BNPL). |
+| 💳 **Pagos locales** | Mercado Pago Checkout Pro (tarjetas, Yape, cuenta Mercado Pago), transferencia y contraentrega. |
 
 ### Arquitectura Headless
 
@@ -71,7 +71,7 @@ Este frontend consume datos de un **backend WordPress + WooCommerce** a través 
 ### 🚧 En desarrollo
 
 - [ ] **Configurador de PC** con validación de compatibilidad en tiempo real.
-- [ ] **Checkout con Culqi** (sandbox y producción).
+- [x] **Checkout con Mercado Pago** (Checkout Pro vía API de Orders; la lógica vive en el backend).
 - [ ] **Creación de pedidos** en WooCommerce vía REST API.
 - [ ] **Página de confirmación** post-compra.
 
@@ -98,7 +98,6 @@ Este frontend consume datos de un **backend WordPress + WooCommerce** a través 
 | **Tailwind CSS** | 4.x | Framework de estilos utility-first |
 | **Apollo Client** | 3.x | Cliente GraphQL |
 | **Zustand** | 5.x | Gestión de estado global (carrito, configurador) |
-| **React Culqi** | 1.x | Integración con la pasarela de pagos peruana |
 
 ### Backend (repositorio separado)
 
@@ -211,13 +210,11 @@ Crea un archivo `.env.local` en la raíz del proyecto con:
 ```env
 NEXT_PUBLIC_WORDPRESS_URL=http://nexopc-local.local
 NEXT_PUBLIC_GRAPHQL_URL=http://nexopc-local.local/graphql
-WC_CONSUMER_KEY=ck_tu_clave_aqui
-WC_CONSUMER_SECRET=cs_tu_clave_aqui
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_CULQI_PUBLIC_KEY=pk_test_tu_llave_aqui
+NEXOPC_SIGNUP_SECRET=el_mismo_secreto_que_en_wordpress_min_32_caracteres
 ```
 
-**IMPORTANTE:** Pide las claves de WooCommerce al líder del equipo. NO las subas a GitHub.
+**IMPORTANTE:** Pide el secreto compartido al líder del equipo. NO lo subas a GitHub. Las credenciales de Mercado Pago viven solo en el backend.
 
 ### 4. Verificar que el backend esté corriendo
 

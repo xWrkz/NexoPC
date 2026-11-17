@@ -1,5 +1,7 @@
 import { z } from "zod";
 export const MAX_ORDER_LINES = 50;
+export const PAYMENT_METHODS = ["bacs", "cod", "mercadopago"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 const text =z.string().trim().min(2, "Completa este campo.").max(120, "El valor es demasiado largo.");
 export const orderSchema = z.object({
   items: z
@@ -12,7 +14,7 @@ export const orderSchema = z.object({
     )
     .min(1, "Tu carrito está vacío.")
     .max(MAX_ORDER_LINES, `Tu pedido no puede tener más de ${MAX_ORDER_LINES} productos distintos.`),
-  paymentMethod: z.enum(["bacs", "cod"]),
+  paymentMethod: z.enum(PAYMENT_METHODS),
   customer: z.object({
     firstName: text,
     lastName: text,
@@ -32,5 +34,19 @@ export const orderSchema = z.object({
 });
 export type OrderRequest = z.infer<typeof orderSchema>;
 export type OrderResponse =
-  | { ok: true; orderId: number; orderNumber: string; status: string; paymentMethod: "bacs" | "cod"; message: string }
+  | { ok: true; orderId: number; orderNumber: string; status: string; paymentMethod: PaymentMethod; checkoutUrl?: string; message: string }
   | { ok: false; message: string; errors?: Record<string, string[]> };
+
+/** Estado que la página de confirmación muestra tras volver de Mercado Pago. */
+export type OrderStatus = { orderNumber: string; status: string; paymentMethod: string; paid: boolean; total: string; mpStatus?: string; mpStatusDetail?: string };
+
+/** Solo se redirige a dominios de Mercado Pago, nunca a una URL arbitraria. */
+export function isMercadoPagoCheckoutUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && /(^|\.)mercadopago\.com(\.[a-z]{2})?$/.test(url.hostname);
+  } catch {
+    return false;
+  }
+}

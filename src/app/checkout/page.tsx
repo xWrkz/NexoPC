@@ -7,6 +7,7 @@ import { AlertCircle, Banknote, CheckCircle2, CreditCard, LoaderCircle, ShieldCh
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cartStore";
 import { formatPrice } from "@/lib/utils/formatPrice";
+import { isMercadoPagoCheckoutUrl, type PaymentMethod } from "@/lib/checkout/schema";
 
 type Form = { firstName: string; lastName: string; email: string; phone: string; address1: string; city: string; region: string; postcode: string; notes: string };
 const initial: Form = { firstName: "", lastName: "", email: "", phone: "", address1: "", city: "", region: "La Libertad", postcode: "", notes: "" };
@@ -23,23 +24,23 @@ export default function Checkout() {
   const mounted = useSyncExternalStore(() => () => undefined, () => true, () => false);
   const safeItems = mounted ? items : [];
   const [form, setForm] = useState(initial);
-  const [method, setMethod] = useState<"bacs" | "cod" | "culqi">("bacs");
+  const [method, setMethod] = useState<PaymentMethod>("mercadopago");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const hasPendingPrices = safeItems.some((item) => !Number.isFinite(item.price) || item.price <= 0);
   const methods = [
+    { value: "mercadopago" as const, Icon: CreditCard, title: "Mercado Pago", text: "Paga con tarjeta, Yape o tu cuenta Mercado Pago en su página segura." },
     { value: "bacs" as const, Icon: Banknote, title: "Transferencia bancaria", text: "Reservamos tu pedido y te enviamos las indicaciones para completar el pago." },
     { value: "cod" as const, Icon: Truck, title: "Pago contraentrega", text: "Coordinamos contigo la entrega y el pago después de registrar la solicitud." },
-    { value: "culqi" as const, Icon: CreditCard, title: "Pago digital · próximamente", text: "Esta opción todavía no está disponible." },
   ];
 
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setMessage(""); setErrors({});
-    if (method === "culqi") { setMessage("El pago digital aún no está disponible. Elige transferencia o pago contraentrega."); return; }
     if (!safeItems.length) { setMessage("Tu carrito está vacío."); return; }
     if (hasPendingPrices) { setMessage("Hay productos sin precio confirmado. Revísalos en el carrito antes de continuar."); return; }
     setLoading(true);
+    let redirecting = false;
     try {
       const response = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentMethod: method, customer: form, items: safeItems.map(({ productId, variationId, quantity }) => ({ productId, variationId, quantity })) }) });
       const data = await response.json();
@@ -49,9 +50,14 @@ export default function Checkout() {
         setErrors(data.errors ?? {});
         return;
       }
+      if (data.paymentMethod === "mercadopago") {
+        // El carrito se conserva hasta que el backend confirme el pago al volver.
+        if (!isMercadoPagoCheckoutUrl(data.checkoutUrl)) { setMessage("No pudimos iniciar el pago. Inténtalo nuevamente."); return; }
+        redirecting = true; window.location.assign(data.checkoutUrl); return;
+      }
       clearCart(); router.push(`/confirmacion?numero=${encodeURIComponent(data.orderNumber)}&metodo=${data.paymentMethod}`);
     } catch { setMessage("No pudimos conectarnos con el servidor. Tu carrito sigue guardado para que lo intentes de nuevo."); }
-    finally { setLoading(false); }
+    finally { if (!redirecting) setLoading(false); }
   };
 
   const field = (key: keyof Form, label: string, type = "text") => {
@@ -104,7 +110,7 @@ export default function Checkout() {
               </strong>
             </div>
           ))}
-        </div><div className="mt-5 flex justify-between gap-4 border-t border-white/8 pt-4"><span className="font-bold">Total estimado</span><span className="price text-2xl">{formatPrice(String(getTotal()))}</span></div>{message ? <div className="commerce-warning" role="alert"><AlertCircle size={17}/>{message}</div> : null}<button disabled={loading || hasPendingPrices} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-55">{loading ? <><LoaderCircle className="animate-spin" size={18}/>Registrando pedido…</> : method === "culqi" ? <><CreditCard size={18}/>Consultar disponibilidad</> : <><CheckCircle2 size={18}/>Registrar pedido</>}</button><p className="mt-3 text-center text-xs leading-5 text-slate-500">Revisaremos disponibilidad y datos antes de confirmar la atención.</p></aside>
+        </div><div className="mt-5 flex justify-between gap-4 border-t border-white/8 pt-4"><span className="font-bold">Total estimado</span><span className="price text-2xl">{formatPrice(String(getTotal()))}</span></div>{message ? <div className="commerce-warning" role="alert"><AlertCircle size={17}/>{message}</div> : null}<button disabled={loading || hasPendingPrices} className="btn-primary focus-ring mt-5 w-full disabled:cursor-not-allowed disabled:opacity-55">{loading ? <><LoaderCircle className="animate-spin" size={18}/>{method === "mercadopago" ? "Conectando con Mercado Pago…" : "Registrando pedido…"}</> : method === "mercadopago" ? <><CreditCard size={18}/>Pagar con Mercado Pago</> : <><CheckCircle2 size={18}/>Registrar pedido</>}</button><p className="mt-3 text-center text-xs leading-5 text-slate-500">{method === "mercadopago" ? "Te llevaremos a Mercado Pago para pagar. Tu carrito se vacía cuando el pago se confirme." : "Revisaremos disponibilidad y datos antes de confirmar la atención."}</p></aside>
     </form>
   </main>;
 }
